@@ -50,9 +50,15 @@ processing. The canonical unit of RAG source material before chunking.
 
 ### Chunk
 A retrievable slice of a Video's Transcript. Owned by the Video (via its
-Transcript). Timestamp-aware, so a citation points back to the Video at a
-specific time. Carries embedding + retrieval metadata; rebuildable when
-chunking or embedding params change.
+Transcript). Packed from caption segments to a ~512-token target with
+**~10–20% whole-segment overlap** (~15% / ~64 tokens default) between adjacent
+Chunks. The embedded text includes the overlap; a Citation uses the Chunk's
+**core** (non-overlap) timestamp span so deep-links stay tight. Carries
+embedding + retrieval metadata; rebuildable when chunking or embedding params
+change.
+
+_Avoid_: citing the full overlap-inflated time span; overlapping across chapter
+boundaries.
 
 ### Ingestion
 The background pipeline that turns a Source into retrievable Chunks:
@@ -96,6 +102,13 @@ file: (a) LLM-synthesized **content** from retrieved Transcripts with timestampe
 citations, and (b) a curated, versioned **skill-authoring best-practices**
 section. Produced by a multi-agent system, not a single prompt. Consumed by the
 user telling their agent "create a skill based on this skill-content.md".
+**Versioned per Scope**: each regeneration **appends** an immutable version
+(kept forever in v1); the user can browse and download any older version.
+New versions are created by manual regenerate, or by Sync when it actually
+ingested new Videos.
+
+_Avoid_: overwriting prior generations in place; implying only one artifact
+exists per Scope; auto-versioning on no-op Syncs.
 
 ### Best-practices template
 The curated, **static**, versioned half of skill-content.md: general
@@ -107,10 +120,11 @@ half.
 
 ### Sync
 Keeping a collection-type Source — and the artifacts derived from it — current
-as new videos appear: it Ingests the newly-added Videos into RAG and refreshes
-the derived skill-content. Two triggers: an **automatic** once-daily pass and a
-**manual** "Sync now" capped at once per day. video-kind Sources are never
-Synced (their Video is immutable). Exact mechanics: ticket D4.
+as new videos appear: it Ingests the newly-added Videos into RAG and appends a
+new skill-content.md version when regeneration runs. Two triggers: an
+**automatic** once-daily pass and a **manual** "Sync now" capped at once per
+day. video-kind Sources are never Synced (their Video is immutable). Exact
+mechanics: ticket D4.
 
 _Avoid_: Syncing a video-kind Source; treating the manual or automatic trigger
 as unlimited.

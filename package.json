@@ -1,0 +1,9 @@
+{
+  "name": "aulus",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "bun run --filter '*' typecheck"
+  }
+}
