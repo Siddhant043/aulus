@@ -1,0 +1,30 @@
+# deps
+node_modules/
+.turbo/
+dist/
+build/
+out/
+
+# bun
+bun.lockb
+.bun/
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+logs/
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# data / local infra
+*.local
+docker-data/
+pgdata/
