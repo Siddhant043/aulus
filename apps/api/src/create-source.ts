@@ -33,16 +33,6 @@ export async function createSource(
     return { status: 400, body: { error: message } };
   }
 
-  if (youtube.kind !== "video") {
-    return {
-      status: 400,
-      body: {
-        error:
-          "Only video URLs can be added in this version. Channel and playlist Sources land in a later ticket.",
-      },
-    };
-  }
-
   const existing = await deps.store.findSourceByKindAndYoutubeId(
     youtube.kind,
     youtube.youtubeId,

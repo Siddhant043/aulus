@@ -160,4 +160,82 @@ describe("handleIngestVideo", () => {
     expect(parentJob?.status).toBe("succeeded");
     expect(parentJob?.progress.unavailable).toBe(1);
   });
+
+  test("marks one caption-less Video unavailable without failing sibling Jobs", async () => {
+    const store = createMemoryIngestStore();
+    const source = await store.createSource({
+      kind: "playlist",
+      youtubeId: "PLsiblings",
+      url: "https://www.youtube.com/playlist?list=PLsiblings",
+    });
+    const parent = await store.createJob({
+      kind: "ingest_source",
+      sourceId: source.id,
+    });
+    const childIds: string[] = [];
+    await handleIngestSource(
+      {
+        store,
+        enqueueJob: async (kind, jobId) => {
+          if (kind === "ingest_video") {
+            childIds.push(jobId);
+          }
+        },
+        enumerateCollection: async () => [
+          { youtubeVideoId: "hascaptions", title: "Captioned" },
+          { youtubeVideoId: "nocaptions1", title: "Silent" },
+        ],
+      },
+      parent.id,
+    );
+
+    for (const childId of childIds) {
+      await handleIngestVideo(
+        {
+          store,
+          embeddings: fakeEmbeddings(),
+          fetchTranscript: async (youtubeVideoId) => {
+            if (youtubeVideoId === "nocaptions1") {
+              return {
+                ok: false,
+                reason: "no_captions",
+                message: "No captions",
+              };
+            }
+            return {
+              ok: true,
+              segments: captionSegments,
+              isAsr: false,
+              language: "en",
+              metadata: {
+                title: "Captioned",
+                description: null,
+                durationSec: 3,
+                chapters: [],
+                thumbnails: {},
+                channelYoutubeId: null,
+              },
+            };
+          },
+        },
+        childId,
+      );
+    }
+
+    const videos = await store.listVideosForSource(source.id);
+    const statusByYoutubeId = Object.fromEntries(
+      videos.map((video) => [video.youtubeVideoId, video.status]),
+    );
+    expect(statusByYoutubeId.hascaptions).toBe("ready");
+    expect(statusByYoutubeId.nocaptions1).toBe("unavailable");
+
+    const parentJob = await store.getJob(parent.id);
+    expect(parentJob?.status).toBe("succeeded");
+    expect(parentJob?.progress).toEqual({
+      discovered: 0,
+      ready: 1,
+      unavailable: 1,
+      error: 0,
+    });
+  });
 });

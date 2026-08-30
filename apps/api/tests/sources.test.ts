@@ -46,20 +46,60 @@ describe("POST /api/sources", () => {
     expect(response.status).toBe(400);
   });
 
-  test("rejects channel and playlist URLs until T6", async () => {
+  test("returns a channel-kind Source for a YouTube channel URL", async () => {
+    const store = createMemoryIngestStore();
+    const enqueued: Array<{ kind: string; jobId: string }> = [];
     const app = createApp({
-      store: createMemoryIngestStore(),
-      enqueueJob: async () => {},
+      store,
+      enqueueJob: async (kind, jobId) => {
+        enqueued.push({ kind, jobId });
+      },
     });
 
-    const channel = await app.request("/api/sources", {
+    const response = await app.request("/api/sources", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         url: "https://www.youtube.com/channel/UC_x5XG1OV2P6uZZ5FSM9Ttw",
       }),
     });
-    expect(channel.status).toBe(400);
+
+    expect(response.status).toBe(201);
+    const body = sourceSchema.parse(await response.json());
+    expect(body.kind).toBe("channel");
+    expect(body.youtubeId).toBe("UC_x5XG1OV2P6uZZ5FSM9Ttw");
+    expect(body.status).toBe("ingesting");
+    expect(enqueued).toEqual([
+      { kind: "ingest_source", jobId: body.jobId as string },
+    ]);
+  });
+
+  test("returns a playlist-kind Source for a YouTube playlist URL", async () => {
+    const store = createMemoryIngestStore();
+    const enqueued: Array<{ kind: string; jobId: string }> = [];
+    const app = createApp({
+      store,
+      enqueueJob: async (kind, jobId) => {
+        enqueued.push({ kind, jobId });
+      },
+    });
+
+    const response = await app.request("/api/sources", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        url: "https://www.youtube.com/playlist?list=PLrAXtmRdnEQy6nuLMOVlrhdc6TjiSD4mG",
+      }),
+    });
+
+    expect(response.status).toBe(201);
+    const body = sourceSchema.parse(await response.json());
+    expect(body.kind).toBe("playlist");
+    expect(body.youtubeId).toBe("PLrAXtmRdnEQy6nuLMOVlrhdc6TjiSD4mG");
+    expect(body.status).toBe("ingesting");
+    expect(enqueued).toEqual([
+      { kind: "ingest_source", jobId: body.jobId as string },
+    ]);
   });
 
   test("returns the existing Source when the same video URL is posted twice", async () => {

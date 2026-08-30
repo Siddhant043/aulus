@@ -5,6 +5,7 @@ import { createDb, createDrizzleIngestStore } from "@aulus/db";
 import { createTranscriptFetcher } from "./ingest/create-transcript-fetcher";
 import { handleIngestSource } from "./ingest/ingest-source";
 import { handleIngestVideo } from "./ingest/ingest-video";
+import { createYoutubeDataApiEnumerator } from "./ingest/youtube-data-api";
 import {
   createIngestQueues,
   createRedisConnection,
@@ -21,11 +22,17 @@ const redis = createRedisConnection(config.REDIS_URL);
 const queues = createIngestQueues(redis);
 const enqueueJob = enqueueUsing(queues);
 const fetchTranscript = createTranscriptFetcher();
+const enumerateCollection = config.YOUTUBE_API_KEY
+  ? createYoutubeDataApiEnumerator({ apiKey: config.YOUTUBE_API_KEY })
+  : undefined;
 
 const ingestSourceWorker = new Worker<IngestJobData>(
   INGEST_SOURCE_QUEUE,
   async (job) => {
-    await handleIngestSource({ store, enqueueJob }, job.data.jobId);
+    await handleIngestSource(
+      { store, enqueueJob, enumerateCollection },
+      job.data.jobId,
+    );
   },
   { connection: redis.duplicate() },
 );
@@ -46,7 +53,10 @@ const ingestVideoWorker = new Worker<IngestJobData>(
       job.data.jobId,
     );
   },
-  { connection: redis.duplicate(), concurrency: 2 },
+  {
+    connection: redis.duplicate(),
+    concurrency: config.INGEST_VIDEO_CONCURRENCY,
+  },
 );
 
 ingestSourceWorker.on("failed", (job, error) => {

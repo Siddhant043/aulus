@@ -61,4 +61,12 @@ describe("loadConfig", () => {
     expect(config.LANGSMITH_API_KEY).toBeUndefined();
     expect(config.LLM_FALLBACK_PROVIDER).toBeUndefined();
   });
+
+  test("defaults INGEST_VIDEO_CONCURRENCY to 2 and accepts an override", () => {
+    expect(loadConfig(validEnv).INGEST_VIDEO_CONCURRENCY).toBe(2);
+    expect(
+      loadConfig({ ...validEnv, INGEST_VIDEO_CONCURRENCY: "3" })
+        .INGEST_VIDEO_CONCURRENCY,
+    ).toBe(3);
+  });
 });
