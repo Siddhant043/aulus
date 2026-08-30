@@ -45,7 +45,13 @@ function videoFromRow(row: typeof videos.$inferSelect): VideoRecord {
   };
 }
 
-function progressFromJson(value: Record<string, unknown>): JobProgress {
+function progressFromJson(
+  kind: typeof jobs.$inferSelect.kind,
+  value: Record<string, unknown>,
+): JobProgress {
+  if (kind === "generate_skill_content" || kind === "sync_source") {
+    return value;
+  }
   return {
     discovered: Number(value.discovered ?? 0),
     ready: Number(value.ready ?? 0),
@@ -55,17 +61,16 @@ function progressFromJson(value: Record<string, unknown>): JobProgress {
 }
 
 function jobFromRow(row: typeof jobs.$inferSelect): JobRecord {
-  const kind = row.kind;
-  if (kind !== "ingest_source" && kind !== "ingest_video") {
-    throw new Error(`Job ${row.id} has unexpected kind ${kind}`);
+  if (row.kind === "sync_source") {
+    throw new Error(`Job ${row.id} has unsupported kind sync_source`);
   }
   return {
     id: row.id,
-    kind,
+    kind: row.kind,
     status: row.status,
     sourceId: row.sourceId,
     videoId: row.videoId,
-    progress: progressFromJson(row.progress),
+    progress: progressFromJson(row.kind, row.progress),
     error: row.error,
   };
 }

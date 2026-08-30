@@ -1,15 +1,22 @@
 import { Worker } from "bullmq";
 import { loadConfig } from "@aulus/config";
 import { initProviders } from "@aulus/ai";
-import { createDb, createDrizzleIngestStore } from "@aulus/db";
+import {
+  createDb,
+  createDrizzleChatStore,
+  createDrizzleIngestStore,
+  createDrizzleSkillContentStore,
+} from "@aulus/db";
 import { createTranscriptFetcher } from "./ingest/create-transcript-fetcher";
 import { handleIngestSource } from "./ingest/ingest-source";
 import { handleIngestVideo } from "./ingest/ingest-video";
 import { createYoutubeDataApiEnumerator } from "./ingest/youtube-data-api";
+import { handleGenerateSkillContent } from "./skill/generate-skill-content";
 import {
   createIngestQueues,
   createRedisConnection,
   enqueueUsing,
+  GENERATE_SKILL_CONTENT_QUEUE,
   INGEST_SOURCE_QUEUE,
   INGEST_VIDEO_QUEUE,
   type IngestJobData,
@@ -17,7 +24,10 @@ import {
 
 const config = loadConfig();
 const providers = await initProviders(config);
-const store = createDrizzleIngestStore(createDb(config.DATABASE_URL));
+const db = createDb(config.DATABASE_URL);
+const store = createDrizzleIngestStore(db);
+const chatStore = createDrizzleChatStore(db);
+const skillContentStore = createDrizzleSkillContentStore(db);
 const redis = createRedisConnection(config.REDIS_URL);
 const queues = createIngestQueues(redis);
 const enqueueJob = enqueueUsing(queues);
@@ -59,11 +69,30 @@ const ingestVideoWorker = new Worker<IngestJobData>(
   },
 );
 
+const generateSkillContentWorker = new Worker<IngestJobData>(
+  GENERATE_SKILL_CONTENT_QUEUE,
+  async (job) => {
+    await handleGenerateSkillContent(
+      {
+        ingestStore: store,
+        chatStore,
+        skillContentStore,
+        providers,
+      },
+      job.data.jobId,
+    );
+  },
+  { connection: redis.duplicate() },
+);
+
 ingestSourceWorker.on("failed", (job, error) => {
   console.error(`ingest_source ${job?.id} failed`, error);
 });
 ingestVideoWorker.on("failed", (job, error) => {
   console.error(`ingest_video ${job?.id} failed`, error);
+});
+generateSkillContentWorker.on("failed", (job, error) => {
+  console.error(`generate_skill_content ${job?.id} failed`, error);
 });
 
 console.log(

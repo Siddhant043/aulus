@@ -96,9 +96,70 @@ async function gradeChunks(
   return relevant;
 }
 
-export function buildChatRetrievalGraph(deps: RetrievalGraphDeps) {
-  const config = deps.retrievalConfig ?? DEFAULT_RETRIEVAL_CONFIG;
+export type RetrieveSubgraphResult = {
+  searchQuery: string;
+  gradedChunks: RetrievedChunk[];
+  contextChunks: RetrievedChunk[];
+  rewriteCount: number;
+};
 
+/**
+ * Shared retrieve → rerank → grade ⇄ rewrite → ±1-neighbor expand loop.
+ * Used by Chat (after route=retrieve) and skill-content (per planned topic).
+ */
+export async function runRetrieveSubgraph(
+  deps: RetrievalGraphDeps,
+  input: {
+    question: string;
+    history: string;
+    videoIds: readonly string[];
+    searchQuery?: string;
+  },
+): Promise<RetrieveSubgraphResult> {
+  const config = deps.retrievalConfig ?? DEFAULT_RETRIEVAL_CONFIG;
+  let searchQuery = input.searchQuery ?? input.question;
+  let rewriteCount = 0;
+  let gradedChunks: RetrievedChunk[] = [];
+
+  while (true) {
+    const reranked = await retrieveAndRerank(deps, searchQuery, input.videoIds);
+    gradedChunks = await gradeChunks(
+      deps,
+      input.question,
+      input.history,
+      reranked,
+    );
+    if (gradedChunks.length > 0 || rewriteCount >= config.maxRewrites) {
+      break;
+    }
+    const rewritten = (
+      await invokeFastModel(deps.providers, "chat.rewrite", {
+        history: input.history,
+        question: input.question,
+      })
+    ).trim();
+    searchQuery = rewritten;
+    rewriteCount += 1;
+  }
+
+  const videoIds = [...new Set(gradedChunks.map((chunk) => chunk.videoId))];
+  const allVideoChunks =
+    videoIds.length === 0
+      ? []
+      : await deps.store.listChunksForVideos(videoIds);
+
+  return {
+    searchQuery,
+    gradedChunks,
+    contextChunks: expandNeighborChunks(
+      gradedChunks,
+      groupChunksByVideo(allVideoChunks),
+    ),
+    rewriteCount,
+  };
+}
+
+export function buildChatRetrievalGraph(deps: RetrievalGraphDeps) {
   const graph = new StateGraph(
     Annotation.Root({
       question: Annotation<string>,
@@ -124,54 +185,25 @@ export function buildChatRetrievalGraph(deps: RetrievalGraphDeps) {
         contextChunks: [],
       };
     })
-    .addNode("retrieve", async (state) => {
-      const reranked = await retrieveAndRerank(
-        deps,
-        state.searchQuery,
-        state.videoIds,
-      );
-      const gradedChunks = await gradeChunks(
-        deps,
-        state.question,
-        state.history,
-        reranked,
-      );
-      return { gradedChunks };
-    })
-    .addNode("rewrite", async (state) => {
-      const rewritten = (
-        await invokeFastModel(deps.providers, "chat.rewrite", {
-          history: state.history,
-          question: state.question,
-        })
-      ).trim();
+    .addNode("retrieve_subgraph", async (state) => {
+      const retrieved = await runRetrieveSubgraph(deps, {
+        question: state.question,
+        history: state.history,
+        videoIds: state.videoIds,
+        searchQuery: state.searchQuery,
+      });
       return {
-        searchQuery: rewritten,
-        rewriteCount: state.rewriteCount + 1,
-      };
-    })
-    .addNode("expand", async (state) => {
-      const videoIds = [...new Set(state.gradedChunks.map((chunk) => chunk.videoId))];
-      const allVideoChunks = await deps.store.listChunksForVideos(videoIds);
-      return {
-        contextChunks: expandNeighborChunks(
-          state.gradedChunks,
-          groupChunksByVideo(allVideoChunks),
-        ),
+        searchQuery: retrieved.searchQuery,
+        gradedChunks: retrieved.gradedChunks,
+        contextChunks: retrieved.contextChunks,
+        rewriteCount: retrieved.rewriteCount,
       };
     })
     .addEdge(START, "route_question")
     .addConditionalEdges("route_question", (state) =>
-      state.route === "answer_directly" ? END : "retrieve",
+      state.route === "answer_directly" ? END : "retrieve_subgraph",
     )
-    .addConditionalEdges("retrieve", (state) => {
-      if (state.gradedChunks.length > 0 || state.rewriteCount >= config.maxRewrites) {
-        return "expand";
-      }
-      return "rewrite";
-    })
-    .addEdge("rewrite", "retrieve")
-    .addEdge("expand", END)
+    .addEdge("retrieve_subgraph", END)
     .compile();
 
   return graph;

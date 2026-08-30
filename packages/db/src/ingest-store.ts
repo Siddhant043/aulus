@@ -25,7 +25,10 @@ export type VideoRecord = {
   ingestedAt: Date | null;
 };
 
-export type JobKind = "ingest_source" | "ingest_video";
+export type JobKind =
+  | "ingest_source"
+  | "ingest_video"
+  | "generate_skill_content";
 export type JobStatus =
   | "queued"
   | "running"
@@ -33,7 +36,7 @@ export type JobStatus =
   | "failed"
   | "cancelled";
 
-export type JobProgress = IngestProgress;
+export type JobProgress = IngestProgress | Record<string, unknown>;
 
 export type JobRecord = {
   id: string;

@@ -15,11 +15,13 @@
     "@aulus/ai": "workspace:*",
     "@aulus/config": "workspace:*",
     "@aulus/db": "workspace:*",
+    "@aulus/types": "workspace:*",
     "bullmq": "^5.58.5",
     "ioredis": "^5.8.1",
     "youtubei.js": "^16.0.0"
   },
   "devDependencies": {
+    "@langchain/core": "^1.0.0",
     "@types/bun": "^1.2.20",
     "typescript": "^5.9.2"
   }

@@ -128,3 +128,56 @@ export const chatSseErrorEventSchema = z.object({
   message: z.string(),
 });
 export type ChatSseErrorEvent = z.infer<typeof chatSseErrorEventSchema>;
+
+export const generateSkillContentRequestSchema = z.object({
+  scope: chatScopeSchema,
+  focus: z.string().optional(),
+});
+export type GenerateSkillContentRequest = z.infer<
+  typeof generateSkillContentRequestSchema
+>;
+
+export const generateSkillContentResponseSchema = z.object({
+  jobId: z.string().uuid(),
+});
+export type GenerateSkillContentResponse = z.infer<
+  typeof generateSkillContentResponseSchema
+>;
+
+export const skillContentArtifactSchema = z.object({
+  id: z.string().uuid(),
+  scope: chatScopeSchema,
+  version: z.number().int().positive(),
+  markdown: z.string(),
+  bestPracticesTemplateVersion: z.string(),
+  modelStamps: z.record(z.string(), z.string()),
+  generatedAt: z.string().datetime(),
+});
+export type SkillContentArtifact = z.infer<typeof skillContentArtifactSchema>;
+
+export const jobKindSchema = z.enum([
+  "ingest_source",
+  "ingest_video",
+  "generate_skill_content",
+]);
+export type JobKindDto = z.infer<typeof jobKindSchema>;
+
+export const jobStatusSchema = z.enum([
+  "queued",
+  "running",
+  "succeeded",
+  "failed",
+  "cancelled",
+]);
+export type JobStatusDto = z.infer<typeof jobStatusSchema>;
+
+export const jobSchema = z.object({
+  id: z.string().uuid(),
+  kind: jobKindSchema,
+  status: jobStatusSchema,
+  sourceId: z.string().uuid().nullable(),
+  videoId: z.string().uuid().nullable(),
+  progress: z.record(z.string(), z.unknown()),
+  error: z.record(z.string(), z.unknown()).nullable(),
+});
+export type Job = z.infer<typeof jobSchema>;

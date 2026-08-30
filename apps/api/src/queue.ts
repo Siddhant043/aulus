@@ -3,24 +3,37 @@ import IORedis from "ioredis";
 import type { JobKind } from "@aulus/db";
 
 export const INGEST_SOURCE_QUEUE = "ingest_source";
+export const GENERATE_SKILL_CONTENT_QUEUE = "generate_skill_content";
 
-export type IngestJobData = { jobId: string };
+export type QueueJobData = { jobId: string };
 
 export function createRedisConnection(redisUrl: string): IORedis {
   return new IORedis(redisUrl, { maxRetriesPerRequest: null });
 }
 
 export function createIngestSourceQueue(connection: IORedis) {
-  return new Queue<IngestJobData>(INGEST_SOURCE_QUEUE, { connection });
+  return new Queue<QueueJobData>(INGEST_SOURCE_QUEUE, { connection });
 }
 
-export function enqueueIngestSource(
-  queue: Queue<IngestJobData>,
-): (kind: JobKind, jobId: string) => Promise<void> {
+export function createGenerateSkillContentQueue(connection: IORedis) {
+  return new Queue<QueueJobData>(GENERATE_SKILL_CONTENT_QUEUE, {
+    connection,
+  });
+}
+
+export function enqueueApiJobs(queues: {
+  ingestSource: Queue<QueueJobData>;
+  generateSkillContent: Queue<QueueJobData>;
+}): (kind: JobKind, jobId: string) => Promise<void> {
   return async (kind, jobId) => {
-    if (kind !== "ingest_source") {
-      throw new Error(`api can only enqueue ingest_source, got ${kind}`);
+    if (kind === "ingest_source") {
+      await queues.ingestSource.add(kind, { jobId });
+      return;
     }
-    await queue.add(kind, { jobId });
+    if (kind === "generate_skill_content") {
+      await queues.generateSkillContent.add(kind, { jobId });
+      return;
+    }
+    throw new Error(`api cannot enqueue job kind ${kind}`);
   };
 }

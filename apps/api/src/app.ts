@@ -1,14 +1,20 @@
 import { Hono } from "hono";
 import type { Providers } from "@aulus/ai";
-import type { ChatStore } from "@aulus/db";
+import type { ChatStore, SkillContentStore, SourceRecord } from "@aulus/db";
 import type { HealthResponse } from "@aulus/types";
 import { registerChatRoutes } from "./chat-routes";
 import { createSource, type SourceRoutesDeps } from "./create-source";
 import { toSourceDto } from "./source-dto";
-import type { SourceRecord } from "@aulus/db";
+import {
+  registerJobRoutes,
+} from "./job-routes";
+import {
+  registerSkillContentRoutes,
+} from "./skill-content-routes";
 
 export type AppDeps = SourceRoutesDeps & {
   chatStore?: ChatStore;
+  skillContentStore?: SkillContentStore;
   providers?: Providers;
 };
 
@@ -61,10 +67,23 @@ export function createApp(deps?: AppDeps) {
     return c.json(await resolveSourceDto(deps, source));
   });
 
+  if (deps) {
+    registerJobRoutes(app, deps.store);
+  }
+
   if (deps?.chatStore && deps.providers) {
     registerChatRoutes(app, {
       store: deps.chatStore,
       providers: deps.providers,
+    });
+  }
+
+  if (deps?.chatStore && deps.skillContentStore && deps.providers) {
+    registerSkillContentRoutes(app, {
+      store: deps.store,
+      chatStore: deps.chatStore,
+      skillContentStore: deps.skillContentStore,
+      enqueueJob: deps.enqueueJob,
     });
   }
 

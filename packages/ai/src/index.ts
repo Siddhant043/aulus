@@ -8,7 +8,11 @@ export type { PromptName } from "./prompt-catalog";
 export { NoneReranker } from "./rerank/none";
 export { runChatTurn } from "./chat/run-chat-turn";
 export type { ChatRunnerDeps } from "./chat/run-chat-turn";
-export { buildChatRetrievalGraph, runRetrievalGraph } from "./chat/retrieval-graph";
+export {
+  buildChatRetrievalGraph,
+  runRetrievalGraph,
+  runRetrieveSubgraph,
+} from "./chat/retrieval-graph";
 export type {
   ChatGraphEvent,
   ChatGraphInput,
@@ -20,3 +24,15 @@ export {
   formatHistoryForPrompt,
   messageContentToString,
 } from "./chat/types";
+export {
+  assembleSkillContent,
+  loadBestPracticesTemplate,
+  BEST_PRACTICES_TEMPLATE_VERSION,
+} from "./skill/assemble";
+export { parsePlanTopics, MAX_SKILL_PLAN_TOPICS } from "./skill/plan-topics";
+export { runSkillContentGeneration } from "./skill/run-skill-content-generation";
+export type {
+  SkillContentInput,
+  SkillContentResult,
+  SkillContentRunnerDeps,
+} from "./skill/run-skill-content-generation";

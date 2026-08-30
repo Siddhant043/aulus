@@ -31,3 +31,14 @@ export {
 export { createMemoryChatStore } from "./memory-chat-store";
 export type { MemoryChatStoreSeed } from "./memory-chat-store";
 export { createDrizzleChatStore } from "./drizzle-chat-store";
+export type {
+  SkillContentStore,
+  SkillContentArtifactRecord,
+} from "./skill-content-store";
+export {
+  scopeFromArtifact,
+  scopeToArtifactColumns,
+  artifactMatchesScope,
+} from "./skill-content-store";
+export { createMemorySkillContentStore } from "./memory-skill-content-store";
+export { createDrizzleSkillContentStore } from "./drizzle-skill-content-store";

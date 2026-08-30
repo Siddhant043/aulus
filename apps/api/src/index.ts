@@ -4,12 +4,14 @@ import {
   createDb,
   createDrizzleChatStore,
   createDrizzleIngestStore,
+  createDrizzleSkillContentStore,
 } from "@aulus/db";
 import { createApp } from "./app";
 import {
+  createGenerateSkillContentQueue,
   createIngestSourceQueue,
   createRedisConnection,
-  enqueueIngestSource,
+  enqueueApiJobs,
 } from "./queue";
 
 const config = loadConfig();
@@ -18,12 +20,18 @@ const providers = await initProviders(config);
 const db = createDb(config.DATABASE_URL);
 const store = createDrizzleIngestStore(db);
 const chatStore = createDrizzleChatStore(db);
+const skillContentStore = createDrizzleSkillContentStore(db);
 const redis = createRedisConnection(config.REDIS_URL);
 const ingestSourceQueue = createIngestSourceQueue(redis);
+const generateSkillContentQueue = createGenerateSkillContentQueue(redis);
 const app = createApp({
   store,
-  enqueueJob: enqueueIngestSource(ingestSourceQueue),
+  enqueueJob: enqueueApiJobs({
+    ingestSource: ingestSourceQueue,
+    generateSkillContent: generateSkillContentQueue,
+  }),
   chatStore,
+  skillContentStore,
   providers,
 });
 
