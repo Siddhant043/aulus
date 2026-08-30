@@ -87,18 +87,33 @@ the Chat graph as the same pipeline; duplicating retrieval for skill-content.
 
 ### Chat
 A grounded question-and-answer session against a Scope — the RAG chatbot of
-Feature 1. The chatbot retrieves the relevant Chunks and answers **only** from
-them, streaming the reply and attaching Citations.
+Feature 1. **Scope is fixed when the Chat is created** and applies to every
+message in that thread. The chatbot retrieves the relevant Chunks and answers
+**only** from them, streaming the reply over **SSE** (`status` / `token` /
+`citations` / `done` / `error`) and attaching Citations as a final event.
+Persisted assistant content is **display markdown** (Chunk-id markers already
+resolved to deep-links); structured Citations live in `citations` jsonb.
+API: `POST /chats`, `GET /chats`, `GET|DELETE /chats/:id`,
+`POST /chats/:id/messages` (SSE). Creating a Chat with zero ready Videos is
+allowed; **sending** a message then fails until the Scope has ready Videos.
+Follow-ups use the last **N** messages (default 10) as model context; older
+turns remain in history for UI only. At most **one in-flight answer** per Chat
+(reject concurrent sends with 409). The React app uses separate routes for Chat
+(`/chats`), Sources, and skill-content (D3 API); Chat does not embed
+skill-content generation.
 
 _Avoid_: "search" (Chat answers; it does not just list hits); presenting
-ungrounded free-form LLM output as a Chat answer.
+ungrounded free-form LLM output as a Chat answer; changing Scope mid-thread;
+WebSocket for Chat streaming; sending while Scope has zero ready Videos without
+a clear error.
 
 ### Scope
 The extent a Chat — or a skill-content generation — runs over: a single Source,
-a Collection (grouping), or the whole Library. Chosen per session.
+a Collection (grouping), or the whole Library. Chosen **per Chat** (or per
+skill-content generation), not per message.
 
 _Avoid_: assuming Chat is always over everything; treating Scope and Collection
-as synonyms (a Collection is only one possible Scope).
+as synonyms (a Collection is only one possible Scope); per-message Scope.
 
 ### Library
 The full set of the user's Videos across every Source — the widest Scope
