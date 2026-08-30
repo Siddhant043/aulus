@@ -14,8 +14,11 @@
   "dependencies": {
     "@aulus/ai": "workspace:*",
     "@aulus/config": "workspace:*",
+    "@aulus/db": "workspace:*",
     "@aulus/types": "workspace:*",
-    "hono": "^4.9.6"
+    "bullmq": "^5.58.5",
+    "hono": "^4.9.6",
+    "ioredis": "^5.8.1"
   },
   "devDependencies": {
     "@types/bun": "^1.2.20",

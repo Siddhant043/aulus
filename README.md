@@ -14,8 +14,9 @@ channels, and playlists** and get two things back:
 ## Status
 
 The monorepo skeleton is in place (`apps/api`, `apps/worker`, `apps/web`,
-`@aulus/config`, `@aulus/types`, `@aulus/db`, `@aulus/ai`). Feature work lands on
-this topology.
+`@aulus/config`, `@aulus/types`, `@aulus/db`, `@aulus/ai`). Video-kind Sources
+ingest end to end: `POST /api/sources` with a YouTube URL, then the worker
+fetches captions (yt-dlp → youtubei.js), packs Chunks, embeds, and stores them.
 
 ## Bring-up
 

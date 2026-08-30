@@ -16,8 +16,10 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@aulus/types": "workspace:*",
     "drizzle-orm": "^0.44.5",
     "drizzle-kit": "^0.31.4",
+    "js-tiktoken": "^1.0.21",
     "postgres": "^3.4.7"
   },
   "devDependencies": {

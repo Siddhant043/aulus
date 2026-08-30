@@ -16,3 +16,42 @@ export const healthResponseSchema = z.object({
   status: z.literal("ok"),
 });
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
+
+export {
+  parseYoutubeUrl,
+  YoutubeUrlError,
+} from "./youtube-url";
+export type { ParsedYoutubeUrl } from "./youtube-url";
+
+export const sourceIngestionStatusSchema = z.enum([
+  "ingesting",
+  "ready",
+  "unavailable",
+  "error",
+]);
+export type SourceIngestionStatus = z.infer<typeof sourceIngestionStatusSchema>;
+
+export const ingestProgressSchema = z.object({
+  discovered: z.number().int().nonnegative(),
+  ready: z.number().int().nonnegative(),
+  unavailable: z.number().int().nonnegative(),
+  error: z.number().int().nonnegative(),
+});
+export type IngestProgress = z.infer<typeof ingestProgressSchema>;
+
+export const createSourceRequestSchema = z.object({
+  url: z.string().min(1),
+});
+export type CreateSourceRequest = z.infer<typeof createSourceRequestSchema>;
+
+export const sourceSchema = z.object({
+  id: z.string().uuid(),
+  kind: sourceKindSchema,
+  youtubeId: z.string(),
+  url: z.string(),
+  title: z.string().nullable(),
+  status: sourceIngestionStatusSchema,
+  jobId: z.string().uuid().nullable(),
+  progress: ingestProgressSchema,
+});
+export type Source = z.infer<typeof sourceSchema>;
