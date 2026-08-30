@@ -49,7 +49,7 @@ services:
       REDIS_URL: redis://redis-stack:6379
       APP_PORT: "3000"
       NODE_ENV: production
-      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      LLM_PROVIDER: openai
       OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
     ports:
       - "3000:3000"
@@ -75,7 +75,7 @@ services:
       DATABASE_URL: postgres://aulus:aulus@postgres:5432/aulus
       REDIS_URL: redis://redis-stack:6379
       NODE_ENV: production
-      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      LLM_PROVIDER: openai
       OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
     depends_on:
       migrate:

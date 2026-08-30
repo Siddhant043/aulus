@@ -14,8 +14,8 @@ channels, and playlists** and get two things back:
 ## Status
 
 The monorepo skeleton is in place (`apps/api`, `apps/worker`, `apps/web`,
-`@aulus/config`, `@aulus/types`, `@aulus/db`). Feature work lands on this
-topology.
+`@aulus/config`, `@aulus/types`, `@aulus/db`, `@aulus/ai`). Feature work lands on
+this topology.
 
 ## Bring-up
 
@@ -45,6 +45,7 @@ bun run typecheck
 bun run lint
 bun run build
 bun run db:migrate
+bun run ai:smoke     # live chat + embed (needs real OPENAI_API_KEY)
 ```
 
 ## Stack
@@ -53,8 +54,9 @@ bun run db:migrate
 - **Backend:** Hono API + a background worker
 - **Frontend:** React + Vite (Workbench UI in a later ticket)
 - **Validation:** Zod end-to-end (schemas shared frontend↔backend)
-- **AI:** LangChain + LangGraph (JS), provider-agnostic (Ollama in dev, hosted in
-  prod), OpenAI embeddings, LangSmith tracing
+- **AI:** `@aulus/ai` `initProviders` — Ollama / OpenAI / Anthropic with fallback,
+  fixed OpenAI embeddings, optional rerank, local Prompt catalog, LangSmith
+  tracing env-gated
 - **Data:** Postgres + pgvector, redis-stack
 - **Runtime:** Docker + docker-compose
 

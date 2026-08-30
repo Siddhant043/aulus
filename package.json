@@ -10,7 +10,8 @@
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
-    "db:migrate": "turbo run db:migrate"
+    "db:migrate": "turbo run db:migrate",
+    "ai:smoke": "bun run --filter @aulus/ai smoke"
   },
   "devDependencies": {
     "@eslint/js": "^9.34.0",

@@ -12,6 +12,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@aulus/ai": "workspace:*",
     "@aulus/config": "workspace:*",
     "@aulus/types": "workspace:*",
     "hono": "^4.9.6"

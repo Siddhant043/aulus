@@ -1,7 +1,9 @@
 import { loadConfig } from "@aulus/config";
+import { initProviders } from "@aulus/ai";
 import { createApp } from "./app";
 
 const config = loadConfig();
+await initProviders(config);
 const app = createApp();
 
 Bun.serve({

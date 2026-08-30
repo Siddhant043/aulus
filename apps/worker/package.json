@@ -11,6 +11,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@aulus/ai": "workspace:*",
     "@aulus/config": "workspace:*"
   },
   "devDependencies": {
