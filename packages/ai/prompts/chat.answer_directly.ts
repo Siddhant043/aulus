@@ -5,5 +5,8 @@ export const chatAnswerDirectlyPrompt = ChatPromptTemplate.fromMessages([
     "system",
     `Answer this greeting or meta question briefly. Do not retrieve, and do not emit Citations or [[chunk:...]] markers.`,
   ],
-  ["human", "{question}"],
+  [
+    "human",
+    "Prior turns:\n{history}\n\nCurrent question:\n{question}",
+  ],
 ]);

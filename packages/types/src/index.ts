@@ -47,11 +47,81 @@ export type CreateSourceRequest = z.infer<typeof createSourceRequestSchema>;
 export const sourceSchema = z.object({
   id: z.string().uuid(),
   kind: sourceKindSchema,
-  youtubeId: z.string(),
   url: z.string(),
+  youtubeId: z.string(),
   title: z.string().nullable(),
   status: sourceIngestionStatusSchema,
   jobId: z.string().uuid().nullable(),
   progress: ingestProgressSchema,
 });
 export type Source = z.infer<typeof sourceSchema>;
+
+export const chatScopeSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("library") }),
+  z.object({ kind: z.literal("source"), sourceId: z.string().uuid() }),
+  z.object({
+    kind: z.literal("collection"),
+    collectionId: z.string().uuid(),
+  }),
+]);
+export type ChatScope = z.infer<typeof chatScopeSchema>;
+
+export const createChatRequestSchema = chatScopeSchema;
+export type CreateChatRequest = z.infer<typeof createChatRequestSchema>;
+
+export const chatSchema = z.object({
+  id: z.string().uuid(),
+  scope: chatScopeSchema,
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+export type Chat = z.infer<typeof chatSchema>;
+
+export const chatMessageRoleSchema = z.enum(["user", "assistant", "system"]);
+export type ChatMessageRole = z.infer<typeof chatMessageRoleSchema>;
+
+export const citationRefSchema = z.object({
+  videoId: z.string().uuid(),
+  youtubeVideoId: z.string(),
+  citeStartSec: z.number(),
+  citeEndSec: z.number(),
+  chunkId: z.string().uuid().optional(),
+});
+export type CitationRef = z.infer<typeof citationRefSchema>;
+
+export const chatMessageSchema = z.object({
+  id: z.string().uuid(),
+  chatId: z.string().uuid(),
+  role: chatMessageRoleSchema,
+  content: z.string(),
+  citations: z.array(citationRefSchema),
+  createdAt: z.string().datetime(),
+});
+export type ChatMessage = z.infer<typeof chatMessageSchema>;
+
+export const sendChatMessageRequestSchema = z.object({
+  content: z.string().min(1),
+});
+export type SendChatMessageRequest = z.infer<
+  typeof sendChatMessageRequestSchema
+>;
+
+export const chatSseStatusEventSchema = z.object({
+  phase: z.string(),
+});
+export type ChatSseStatusEvent = z.infer<typeof chatSseStatusEventSchema>;
+
+export const chatSseTokenEventSchema = z.object({
+  text: z.string(),
+});
+export type ChatSseTokenEvent = z.infer<typeof chatSseTokenEventSchema>;
+
+export const chatSseCitationsEventSchema = z.object({
+  citations: z.array(citationRefSchema),
+});
+export type ChatSseCitationsEvent = z.infer<typeof chatSseCitationsEventSchema>;
+
+export const chatSseErrorEventSchema = z.object({
+  message: z.string(),
+});
+export type ChatSseErrorEvent = z.infer<typeof chatSseErrorEventSchema>;

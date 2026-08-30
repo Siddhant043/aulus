@@ -18,3 +18,16 @@ export { createMemoryIngestStore } from "./memory-ingest-store";
 export { createDb } from "./client";
 export type { Database } from "./client";
 export { createDrizzleIngestStore } from "./drizzle-ingest-store";
+export type {
+  ChatStore,
+  ChatRecord,
+  ChatMessageRecord,
+  RetrievedChunk,
+} from "./chat-store";
+export {
+  scopeFromChatRecord,
+  scopeFromChatScope,
+} from "./chat-store";
+export { createMemoryChatStore } from "./memory-chat-store";
+export type { MemoryChatStoreSeed } from "./memory-chat-store";
+export { createDrizzleChatStore } from "./drizzle-chat-store";

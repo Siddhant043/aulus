@@ -1,6 +1,10 @@
 import { loadConfig } from "@aulus/config";
 import { initProviders } from "@aulus/ai";
-import { createDb, createDrizzleIngestStore } from "@aulus/db";
+import {
+  createDb,
+  createDrizzleChatStore,
+  createDrizzleIngestStore,
+} from "@aulus/db";
 import { createApp } from "./app";
 import {
   createIngestSourceQueue,
@@ -9,14 +13,18 @@ import {
 } from "./queue";
 
 const config = loadConfig();
-await initProviders(config);
+const providers = await initProviders(config);
 
-const store = createDrizzleIngestStore(createDb(config.DATABASE_URL));
+const db = createDb(config.DATABASE_URL);
+const store = createDrizzleIngestStore(db);
+const chatStore = createDrizzleChatStore(db);
 const redis = createRedisConnection(config.REDIS_URL);
 const ingestSourceQueue = createIngestSourceQueue(redis);
 const app = createApp({
   store,
   enqueueJob: enqueueIngestSource(ingestSourceQueue),
+  chatStore,
+  providers,
 });
 
 Bun.serve({

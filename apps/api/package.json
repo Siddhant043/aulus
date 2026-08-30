@@ -21,6 +21,7 @@
     "ioredis": "^5.8.1"
   },
   "devDependencies": {
+    "@langchain/core": "^1.2.9",
     "@types/bun": "^1.2.20",
     "typescript": "^5.9.2"
   }

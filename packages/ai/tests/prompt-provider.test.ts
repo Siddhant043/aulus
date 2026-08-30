@@ -11,7 +11,7 @@ describe("PromptProvider.get", () => {
       expect(template).toBeInstanceOf(ChatPromptTemplate);
     }
     const generate = await prompts.get("chat.generate");
-    expect(generate.inputVariables.sort()).toEqual(["context", "question"]);
+    expect(generate.inputVariables.sort()).toEqual(["context", "history", "question"]);
   });
 
   test("rejects an unknown prompt name", async () => {

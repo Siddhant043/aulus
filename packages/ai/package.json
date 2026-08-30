@@ -15,10 +15,12 @@
   },
   "dependencies": {
     "@aulus/config": "workspace:*",
+    "@aulus/db": "workspace:*",
     "@aulus/types": "workspace:*",
     "@langchain/anthropic": "^1.0.0",
     "@langchain/cohere": "^1.0.0",
     "@langchain/core": "^1.0.0",
+    "@langchain/langgraph": "^1.4.13",
     "@langchain/ollama": "^1.0.0",
     "@langchain/openai": "^1.0.0",
     "langchain": "^1.0.0",
