@@ -26,6 +26,7 @@ const envSchema = z
     LANGSMITH_PROJECT: z.string().min(1).optional(),
     LANGSMITH_ENDPOINT: z.string().min(1).optional(),
     APP_PORT: z.coerce.number().int().positive().default(3000),
+    INGEST_VIDEO_CONCURRENCY: z.coerce.number().int().positive().default(2),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   })
   .superRefine((env, ctx) => {
