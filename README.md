@@ -13,15 +13,46 @@ channels, and playlists** and get two things back:
 
 ## Status
 
-🚧 **Planning.** The architecture is being charted in the open as GitHub issues.
-See the [wayfinder map](../../issues?q=is%3Aissue+label%3Awayfinder%3Amap) for the
-destination, the decisions made so far, and the open design tickets.
+The monorepo skeleton is in place (`apps/api`, `apps/worker`, `apps/web`,
+`@aulus/config`, `@aulus/types`, `@aulus/db`). Feature work lands on this
+topology.
 
-## Stack (planned)
+## Bring-up
+
+```bash
+cp .env.example .env   # set OPENAI_API_KEY (required)
+docker compose up --build
+```
+
+That starts postgres, redis-stack, a one-shot migrate, then api, worker, and
+web. Health: `GET http://localhost:3000/api/health` and the UI on
+`http://localhost:8080`.
+
+Optional overlays:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+docker compose -f docker-compose.yml -f docker-compose.ollama.yml up
+```
+
+Local turbo:
+
+```bash
+bun install
+bun run dev          # api + worker + web
+bun run test
+bun run typecheck
+bun run lint
+bun run build
+bun run db:migrate
+```
+
+## Stack
 
 - **Monorepo:** Turborepo + Bun
 - **Backend:** Hono API + a background worker
-- **Frontend:** React
+- **Frontend:** React + Vite (Workbench UI in a later ticket)
+- **Validation:** Zod end-to-end (schemas shared frontend↔backend)
 - **AI:** LangChain + LangGraph (JS), provider-agnostic (Ollama in dev, hosted in
   prod), OpenAI embeddings, LangSmith tracing
 - **Data:** Postgres + pgvector, redis-stack

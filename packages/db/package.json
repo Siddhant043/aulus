@@ -11,16 +11,17 @@
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
     "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "drizzle-orm": "^0.44.5",
+    "drizzle-kit": "^0.31.4",
     "postgres": "^3.4.7"
   },
   "devDependencies": {
     "@types/bun": "^1.2.20",
-    "drizzle-kit": "^0.31.4",
     "typescript": "^5.9.2"
   }
 }

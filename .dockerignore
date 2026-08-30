@@ -1,0 +1,16 @@
+node_modules
+.turbo
+.git
+dist
+*.md
+!packages/**/README.md
+.env
+.env.*
+!.env.example
+docker-data
+pgdata
+wayfinder
+docs
+.claude
+.cursor
+agent-transcripts

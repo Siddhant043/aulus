@@ -1,0 +1,29 @@
+services:
+  api:
+    command: ["bun", "run", "--filter", "@aulus/api", "dev"]
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+
+  worker:
+    command: ["bun", "run", "--filter", "@aulus/worker", "dev"]
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+      API_PROXY_TARGET: http://api:3000
