@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createMemoryIngestStore } from "@aulus/db";
-import { sourceSchema } from "@aulus/types";
+import { sourceSchema, sourceListResponseSchema } from "@aulus/types";
 import { createApp } from "../src/app";
 
 describe("POST /api/sources", () => {
@@ -88,5 +88,48 @@ describe("POST /api/sources", () => {
     expect(second.status).toBe(200);
     const secondBody = sourceSchema.parse(await second.json());
     expect(secondBody.id).toBe(firstBody.id);
+  });
+});
+
+describe("GET /api/sources", () => {
+  test("returns an empty list when no Sources exist", async () => {
+    const store = createMemoryIngestStore();
+    const app = createApp({ store, enqueueJob: async () => {} });
+
+    const response = await app.request("/api/sources");
+    expect(response.status).toBe(200);
+    const body = sourceListResponseSchema.parse(await response.json());
+    expect(body).toEqual([]);
+  });
+
+  test("lists added Sources newest-first with ingestion status", async () => {
+    const store = createMemoryIngestStore();
+    const app = createApp({ store, enqueueJob: async () => {} });
+
+    await app.request("/api/sources", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: "https://youtu.be/dQw4w9WgXcQ" }),
+    });
+    await app.request("/api/sources", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: "https://youtu.be/9bZkp7q19f0" }),
+    });
+
+    const response = await app.request("/api/sources");
+    const body = sourceListResponseSchema.parse(await response.json());
+    expect(body).toHaveLength(2);
+    // Newest first.
+    expect(body[0]?.youtubeId).toBe("9bZkp7q19f0");
+    expect(body[1]?.youtubeId).toBe("dQw4w9WgXcQ");
+    // A freshly-added video Source has no ready Videos yet.
+    expect(body[0]?.status).toBe("ingesting");
+  });
+
+  test("returns 503 when sources are not configured", async () => {
+    const app = createApp();
+    const response = await app.request("/api/sources");
+    expect(response.status).toBe(503);
   });
 });

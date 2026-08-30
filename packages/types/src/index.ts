@@ -55,3 +55,6 @@ export const sourceSchema = z.object({
   progress: ingestProgressSchema,
 });
 export type Source = z.infer<typeof sourceSchema>;
+
+export const sourceListResponseSchema = z.array(sourceSchema);
+export type SourceListResponse = z.infer<typeof sourceListResponseSchema>;

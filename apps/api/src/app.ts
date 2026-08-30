@@ -2,9 +2,20 @@ import { Hono } from "hono";
 import type { HealthResponse } from "@aulus/types";
 import { createSource, type SourceRoutesDeps } from "./create-source";
 import { toSourceDto } from "./source-dto";
+import type { SourceRecord } from "@aulus/db";
 
 export function createApp(deps?: SourceRoutesDeps) {
   const app = new Hono();
+
+  // A Source DTO needs its active ingest job id alongside its Video-derived
+  // status; both read routes below share this resolution.
+  const resolveSourceDto = async (
+    d: SourceRoutesDeps,
+    source: SourceRecord,
+  ) => {
+    const active = await d.store.findActiveIngestSourceJob(source.id);
+    return toSourceDto(d.store, source, active?.id ?? null);
+  };
 
   app.get("/api/health", (c) => {
     const body = { status: "ok" } satisfies HealthResponse;
@@ -20,6 +31,17 @@ export function createApp(deps?: SourceRoutesDeps) {
     return c.json(result.body, result.status);
   });
 
+  app.get("/api/sources", async (c) => {
+    if (!deps) {
+      return c.json({ error: "sources are not configured" }, 503);
+    }
+    const sources = await deps.store.listSources();
+    const dtos = await Promise.all(
+      sources.map((source) => resolveSourceDto(deps, source)),
+    );
+    return c.json(dtos);
+  });
+
   app.get("/api/sources/:id", async (c) => {
     if (!deps) {
       return c.json({ error: "sources are not configured" }, 503);
@@ -28,8 +50,7 @@ export function createApp(deps?: SourceRoutesDeps) {
     if (!source) {
       return c.json({ error: "Source not found" }, 404);
     }
-    const active = await deps.store.findActiveIngestSourceJob(source.id);
-    return c.json(await toSourceDto(deps.store, source, active?.id ?? null));
+    return c.json(await resolveSourceDto(deps, source));
   });
 
   return app;
