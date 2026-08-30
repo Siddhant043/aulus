@@ -6,5 +6,8 @@ export const chatRewritePrompt = ChatPromptTemplate.fromMessages([
     `Rewrite the question as a better retrieval query over YouTube transcript Chunks.
 Return only the rewritten query. Keep the original intent.`,
   ],
-  ["human", "{question}"],
+  [
+    "human",
+    "Prior turns:\n{history}\n\nQuestion to rewrite:\n{question}",
+  ],
 ]);

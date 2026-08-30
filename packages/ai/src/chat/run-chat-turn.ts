@@ -4,6 +4,7 @@ import type { Providers } from "../init-providers";
 import { runRetrievalGraph } from "./retrieval-graph";
 import {
   formatChunksForPrompt,
+  formatHistoryForPrompt,
   messageContentToString,
   type ChatGraphEvent,
   type ChatGraphInput,
@@ -39,6 +40,7 @@ export async function* runChatTurn(
   input: ChatGraphInput,
 ): AsyncGenerator<ChatGraphEvent> {
   try {
+    const history = formatHistoryForPrompt(input.history);
     yield { type: "status", phase: "routing" };
     const retrieval = await runRetrievalGraph(
       {
@@ -46,7 +48,7 @@ export async function* runChatTurn(
         store: deps.store,
         retrievalConfig: deps.retrievalConfig,
       },
-      { question: input.question, videoIds: [...input.videoIds] },
+      { question: input.question, history, videoIds: [...input.videoIds] },
     );
 
     if (retrieval.route === "answer_directly") {
@@ -55,7 +57,7 @@ export async function* runChatTurn(
       for await (const token of streamChatModel(
         deps.providers,
         "chat.answer_directly",
-        { question: input.question },
+        { history, question: input.question },
       )) {
         rawAnswer += token;
         yield { type: "token", text: token };
@@ -74,6 +76,7 @@ export async function* runChatTurn(
     const context = formatChunksForPrompt(contextChunks);
     let rawAnswer = "";
     for await (const token of streamChatModel(deps.providers, "chat.generate", {
+      history,
       question: input.question,
       context,
     })) {

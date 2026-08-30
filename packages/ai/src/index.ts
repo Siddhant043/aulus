@@ -17,5 +17,6 @@ export type {
 } from "./chat/types";
 export {
   DEFAULT_RETRIEVAL_CONFIG,
+  formatHistoryForPrompt,
   messageContentToString,
 } from "./chat/types";

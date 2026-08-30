@@ -31,6 +31,27 @@ export const DEFAULT_RETRIEVAL_CONFIG: RetrievalConfig = {
   maxRewrites: 1,
 };
 
+const EMPTY_HISTORY_PLACEHOLDER = "(none)";
+
+export function formatHistoryForPrompt(
+  history: readonly ChatHistoryMessage[],
+): string {
+  if (history.length === 0) {
+    return EMPTY_HISTORY_PLACEHOLDER;
+  }
+  return history
+    .map((message) => {
+      const speaker =
+        message.role === "user"
+          ? "User"
+          : message.role === "assistant"
+            ? "Assistant"
+            : "System";
+      return `${speaker}: ${message.content}`;
+    })
+    .join("\n");
+}
+
 export function formatChunksForPrompt(chunks: readonly RetrievedChunk[]): string {
   return chunks
     .map(

@@ -7,5 +7,8 @@ export const chatGradePrompt = ChatPromptTemplate.fromMessages([
 Return JSON {{"relevant":true}} or {{"relevant":false}}.
 Judge only the Chunk text; do not invent facts.`,
   ],
-  ["human", "Question:\n{question}\n\nChunk:\n{chunk}"],
+  [
+    "human",
+    "Prior turns:\n{history}\n\nQuestion:\n{question}\n\nChunk:\n{chunk}",
+  ],
 ]);

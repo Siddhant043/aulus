@@ -15,6 +15,7 @@ import {
 
 export type RetrievalGraphState = {
   question: string;
+  history: string;
   searchQuery: string;
   videoIds: string[];
   route: "retrieve" | "answer_directly" | null;
@@ -78,11 +79,13 @@ async function retrieveAndRerank(
 async function gradeChunks(
   deps: RetrievalGraphDeps,
   question: string,
+  history: string,
   chunks: readonly RetrievedChunk[],
 ): Promise<RetrievedChunk[]> {
   const relevant: RetrievedChunk[] = [];
   for (const chunk of chunks) {
     const gradeText = await invokeFastModel(deps.providers, "chat.grade", {
+      history,
       question,
       chunk: chunk.content,
     });
@@ -99,6 +102,7 @@ export function buildChatRetrievalGraph(deps: RetrievalGraphDeps) {
   const graph = new StateGraph(
     Annotation.Root({
       question: Annotation<string>,
+      history: Annotation<string>,
       searchQuery: Annotation<string>,
       videoIds: Annotation<string[]>,
       route: Annotation<"retrieve" | "answer_directly" | null>,
@@ -109,6 +113,7 @@ export function buildChatRetrievalGraph(deps: RetrievalGraphDeps) {
   )
     .addNode("route_question", async (state) => {
       const routeText = await invokeFastModel(deps.providers, "chat.route", {
+        history: state.history,
         question: state.question,
       });
       return {
@@ -128,6 +133,7 @@ export function buildChatRetrievalGraph(deps: RetrievalGraphDeps) {
       const gradedChunks = await gradeChunks(
         deps,
         state.question,
+        state.history,
         reranked,
       );
       return { gradedChunks };
@@ -135,6 +141,7 @@ export function buildChatRetrievalGraph(deps: RetrievalGraphDeps) {
     .addNode("rewrite", async (state) => {
       const rewritten = (
         await invokeFastModel(deps.providers, "chat.rewrite", {
+          history: state.history,
           question: state.question,
         })
       ).trim();
@@ -172,11 +179,12 @@ export function buildChatRetrievalGraph(deps: RetrievalGraphDeps) {
 
 export async function runRetrievalGraph(
   deps: RetrievalGraphDeps,
-  input: Pick<RetrievalGraphState, "question" | "videoIds">,
+  input: Pick<RetrievalGraphState, "question" | "history" | "videoIds">,
 ): Promise<RetrievalGraphState> {
   const graph = buildChatRetrievalGraph(deps);
   return graph.invoke({
     question: input.question,
+    history: input.history,
     searchQuery: input.question,
     videoIds: [...input.videoIds],
     route: null,
