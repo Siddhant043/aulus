@@ -205,6 +205,18 @@ no-op Syncs; duplicate concurrent Syncs for the same Source; re-enumerating
 immediately on Source add.
 
 ### Provider
-A pluggable LLM or embedding backend selected via env/config, with a primary and
-a fallback. Dev defaults to local Ollama for the LLM; embeddings are OpenAI in
-all environments. No code change to switch providers.
+Pluggable AI backends in `@aulus/ai`, initialized once at startup via
+`initProviders(config)` — **fail fast** if embeddings or primary LLM config is
+invalid (`OPENAI_API_KEY` required; reranker key required when enabled). **LLM**
+(primary + fallback via LangChain `.withFallbacks`, retryable errors only) and
+**fast LLM** (route/grade/critic) are env-selected (`ollama` | `openai` |
+`anthropic`); dev/prod presets are documented in `.env.example`, not
+auto-switched by `NODE_ENV`. **Embeddings** are **fixed OpenAI**
+(`text-embedding-3-small`, 1536-dim). **Reranker:** `none` | `cohere` | `voyage`
+(default `none`). **Prompts:** `PromptProvider` — local files default; LangSmith
+Hub optional with local fallback. **LangSmith** tracing is env-gated
+(`LANGSMITH_TRACING` + key), not a Provider. Ollama unreachable: warn in dev,
+fail in prod when primary is ollama.
+
+_Avoid_: mixing embedding providers in one corpus; silent LLM downgrade to
+ungrounded answers; requiring LangSmith to run; magic `NODE_ENV` provider switching.
