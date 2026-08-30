@@ -15,3 +15,12 @@ export type {
   VideoStatusValue,
   SourceIngestionSnapshot,
 } from "./source-ingestion-status";
+export {
+  resolveCitations,
+  extractChunkIdsFromAnswer,
+  youtubeDeepLink,
+} from "./citation-resolver";
+export {
+  expandNeighborChunks,
+  groupChunksByVideo,
+} from "./expand-neighbor-chunks";
