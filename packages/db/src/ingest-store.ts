@@ -71,6 +71,8 @@ export type IngestStore = {
     youtubeId: string,
   ): Promise<SourceRecord | undefined>;
   getSource(id: string): Promise<SourceRecord | undefined>;
+  /** All Sources, newest first — both implementations must honour this order. */
+  listSources(): Promise<SourceRecord[]>;
 
   upsertVideo(input: {
     youtubeVideoId: string;

@@ -54,6 +54,11 @@ export function createMemoryIngestStore(): IngestStore {
       return sources.get(id);
     },
 
+    async listSources() {
+      // Newest first, mirroring the Drizzle store's ordering.
+      return [...sources.values()].reverse();
+    },
+
     async upsertVideo(input) {
       const existingId = videosByYoutubeId.get(input.youtubeVideoId);
       if (existingId) {

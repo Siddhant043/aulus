@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Database } from "./client";
 import {
   chunks,
@@ -103,6 +103,14 @@ export function createDrizzleIngestStore(db: Database): IngestStore {
         .where(eq(sources.id, id))
         .limit(1);
       return row ? sourceFromRow(row) : undefined;
+    },
+
+    async listSources() {
+      const rows = await db
+        .select()
+        .from(sources)
+        .orderBy(desc(sources.createdAt));
+      return rows.map(sourceFromRow);
     },
 
     async upsertVideo(input) {

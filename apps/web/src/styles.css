@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+/* Theme is driven by a data-theme attribute on <html>, set from the Zustand
+   ui store. Default (no attribute) is light. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* D9 design tokens — azure #2563EB accent on slate neutrals, full light+dark.
+   Raw palette vars flip per theme; @theme inline maps them onto Tailwind
+   colour utilities (bg-surface, text-muted, border-border, …). */
+:root {
+  --bg: #f8fafc; /* slate-50 */
+  --surface: #ffffff;
+  --surface-2: #f1f5f9; /* slate-100 */
+  --border: #e2e8f0; /* slate-200 */
+  --border-strong: #cbd5e1; /* slate-300 */
+  --text: #0f172a; /* slate-900 */
+  --muted: #64748b; /* slate-500 */
+  --accent: #2563eb; /* azure */
+  --accent-hover: #1d4ed8; /* azure-700 */
+  --accent-fg: #ffffff;
+
+  --tone-ready: #16a34a;
+  --tone-ready-bg: #dcfce7;
+  --tone-ingesting: #2563eb;
+  --tone-ingesting-bg: #dbeafe;
+  --tone-unavailable: #64748b;
+  --tone-unavailable-bg: #f1f5f9;
+  --tone-error: #dc2626;
+  --tone-error-bg: #fee2e2;
+}
+
+[data-theme="dark"] {
+  --bg: #0b1120;
+  --surface: #0f172a; /* slate-900 */
+  --surface-2: #1e293b; /* slate-800 */
+  --border: #1e293b; /* slate-800 */
+  --border-strong: #334155; /* slate-700 */
+  --text: #e2e8f0; /* slate-200 */
+  --muted: #94a3b8; /* slate-400 */
+  --accent: #3b82f6; /* azure-500, lifted for dark ground */
+  --accent-hover: #60a5fa;
+  --accent-fg: #0b1120;
+
+  --tone-ready: #4ade80;
+  --tone-ready-bg: #052e1a;
+  --tone-ingesting: #60a5fa;
+  --tone-ingesting-bg: #0c2647;
+  --tone-unavailable: #94a3b8;
+  --tone-unavailable-bg: #1e293b;
+  --tone-error: #f87171;
+  --tone-error-bg: #3f1414;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+
+  --color-tone-ready: var(--tone-ready);
+  --color-tone-ready-bg: var(--tone-ready-bg);
+  --color-tone-ingesting: var(--tone-ingesting);
+  --color-tone-ingesting-bg: var(--tone-ingesting-bg);
+  --color-tone-unavailable: var(--tone-unavailable);
+  --color-tone-unavailable-bg: var(--tone-unavailable-bg);
+  --color-tone-error: var(--tone-error);
+  --color-tone-error-bg: var(--tone-error-bg);
+
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

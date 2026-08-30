@@ -56,6 +56,9 @@ export const sourceSchema = z.object({
 });
 export type Source = z.infer<typeof sourceSchema>;
 
+export const sourceListResponseSchema = z.array(sourceSchema);
+export type SourceListResponse = z.infer<typeof sourceListResponseSchema>;
+
 export const chatScopeSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("library") }),
   z.object({ kind: z.literal("source"), sourceId: z.string().uuid() }),
