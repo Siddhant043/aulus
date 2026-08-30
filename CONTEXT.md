@@ -220,3 +220,28 @@ fail in prod when primary is ollama.
 
 _Avoid_: mixing embedding providers in one corpus; silent LLM downgrade to
 ungrounded answers; requiring LangSmith to run; magic `NODE_ENV` provider switching.
+
+### Prompt catalog
+The versioned set of graph prompts in `packages/ai/prompts/`, loaded only via
+`PromptProvider.get(name)`. Keys are dotted **feature.node** names
+(`chat.route`, `chat.grade`, `chat.rewrite`, `chat.generate`,
+`chat.answer_directly`, `skill.plan`, `skill.synthesize`, `skill.critic`).
+Local source of truth is TypeScript modules exporting `ChatPromptTemplate`s;
+optional Hub mirror uses kebab slugs (e.g. `aulus/chat-generate`) with pinned
+commit or `production` tag. Maintainers edit locally, run eval, optionally
+`prompts:push` to Hub; runtime falls back to local on Hub failure.
+
+_Avoid_: inline prompt strings in graph nodes; splitting catalogs per app;
+opaque names that don't map to D2/D3 nodes; Hub as canonical source.
+
+### Evaluation harness
+Optional tooling that scores Chat RAG (and lightly skill-content) against a
+**golden JSONL** fixture corpus in `packages/ai/eval/golden/`. Metrics:
+**retrieval** recall@K (deterministic), **citation correctness** (deterministic:
+resolvable ids ⊆ retrieved set), **groundedness** (fast LLM judge, structured
+yes/no per claim). Run via on-demand **`bun run eval`** CLI (not api/worker);
+optional `EVAL_LANGSMITH=true` to upload experiments. CI optional / manual
+dispatch — never required for self-host.
+
+_Avoid_: requiring LangSmith or eval to run the product; live-DB golden sets;
+eval as a default blocking CI gate for forks without secrets.
