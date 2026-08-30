@@ -169,14 +169,25 @@ half.
 
 ### Sync
 Keeping a collection-type Source — and the artifacts derived from it — current
-as new videos appear: it Ingests the newly-added Videos into RAG and appends a
-new skill-content.md version when regeneration runs. Two triggers: an
-**automatic** once-daily pass and a **manual** "Sync now" capped at once per
-day. video-kind Sources are never Synced (their Video is immutable). Exact
-mechanics: ticket D4.
+as new videos appear. One **sync_source** Job per Source: re-enumerate via
+YouTube Data API, diff against `source_videos`, ingest new Videos, tombstone
+removed ones (`removed_from_upstream_at`; excluded from that Source's Scope,
+Video kept if shared). When the Sync finishes with new **ready** Videos,
+enqueue **generate_skill_content** for Scope = that Source; no regen if zero
+new ready Videos. Partial ingest failure is OK — Sync succeeds with a summary
+counts object. Two triggers: an **automatic** once-daily in-worker cron at
+**03:00 UTC** (all collection-type Sources) and a **manual** `POST
+/sources/:id/sync` per Source, capped at once per rolling 24h
+(`last_manual_sync_at`, independent of auto). At most one active `sync_source`
+per Source (reject duplicate enqueue). **Adding** a Source runs initial
+**ingest_source** only — Sync is for deltas afterward. `last_synced_at` =
+last successful sync completion (auto or manual). video-kind Sources are never
+Synced (their Video is immutable).
 
 _Avoid_: Syncing a video-kind Source; treating the manual or automatic trigger
-as unlimited.
+as unlimited; deleting shared Videos when they leave a playlist; regen on
+no-op Syncs; duplicate concurrent Syncs for the same Source; re-enumerating
+immediately on Source add.
 
 ### Provider
 A pluggable LLM or embedding backend selected via env/config, with a primary and
