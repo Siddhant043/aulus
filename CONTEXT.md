@@ -62,9 +62,28 @@ boundaries.
 
 ### Ingestion
 The background pipeline that turns a Source into retrievable Chunks:
-resolve link → expand (channel/playlist → videos) → fetch Transcript + metadata
-→ chunk → embed → store. Runs on a worker off a queue; long-running for
-collection-type Sources.
+resolve link → expand (channel/playlist → Videos) → fetch Transcript + metadata
+→ chunk → embed → store. Runs on a worker off a queue as a parent
+**ingest_source** Job that fans out **ingest_video** Jobs (one per Video).
+Embedded Chunk text gets a **deterministic context prefix** (video title ·
+chapter · chunk body); optional LLM contextualization is config-gated, off by
+default. Embed batches (~64) and a small concurrent Video-Job cap (~2–3) are
+the defaults. Videos with no captions are marked `unavailable`/`error` without
+failing sibling Jobs. Long-running for collection-type Sources.
+
+### Chat graph
+The LangGraph answering loop for a Chat: **route → retrieve → rerank → grade ⇄
+rewrite → generate**. Hybrid retrieve (HNSW + FTS, RRF; default pool **N=30**,
+rerank keep **K=6**), pluggable rerank (**default `none`** / RRF order for
+self-host). Bounded rewrite attempts (default 1, configurable). Only
+**generate** streams tokens; Citations arrive as a final resolved event.
+Before prompting, each kept Chunk expands by **±1 neighbor** in the same Video
+(by `chunk_index`, never across chapter boundaries). Meta/chit-chat routes to
+**answer_directly** (no retrieve, no Citations). The retrieve→rerank→grade
+subgraph is shared with skill-content generation (D3).
+
+_Avoid_: unbounded agent loops; LLM-invented timestamps; treating Ingestion and
+the Chat graph as the same pipeline; duplicating retrieval for skill-content.
 
 ### Chat
 A grounded question-and-answer session against a Scope — the RAG chatbot of
@@ -91,24 +110,54 @@ equating the Library with a Collection.
 ### Citation
 A reference — in a Chat answer or in skill-content — back to the exact Video and
 timestamp a statement came from, rendered as a deep-link. **Deterministic**:
-built from the cited Chunk's metadata, never invented by the model.
+the model cites **Chunk ids** only; a resolver maps those ids to Chunk
+`cite_*` metadata and a `youtu.be/?t=` URL. Ids not in the retrieved set are
+dropped. Never invent timestamps.
 
 _Avoid_: the word "source" for a Citation (reserved for Source);
-model-fabricated references.
+model-fabricated references or timestamps.
 
 ### skill-content.md
 The downloadable/copyable Markdown artifact from Feature 2. Two halves in one
-file: (a) LLM-synthesized **content** from retrieved Transcripts with timestamped
-citations, and (b) a curated, versioned **skill-authoring best-practices**
-section. Produced by a multi-agent system, not a single prompt. Consumed by the
-user telling their agent "create a skill based on this skill-content.md".
+file: (a) LLM-synthesized **Skill content** — citation-rich material aimed at
+an agent that will author a SKILL.md (suggested name/description, overview,
+procedures, examples from Videos), **not** a finished SKILL.md; and (b) the
+curated **Best-practices template** (R4 v0.1) appended verbatim after a
+horizontal rule. Produced by the **Skill-content generator** from a Scope plus
+an optional **focus prompt** (empty = general skill-oriented digest). Consumed
+by the user telling their agent "create a skill based on this skill-content.md".
 **Versioned per Scope**: each regeneration **appends** an immutable version
 (kept forever in v1); the user can browse and download any older version.
 New versions are created by manual regenerate, or by Sync when it actually
 ingested new Videos.
 
 _Avoid_: overwriting prior generations in place; implying only one artifact
-exists per Scope; auto-versioning on no-op Syncs.
+exists per Scope; auto-versioning on no-op Syncs; emitting a complete SKILL.md
+inside skill-content.md.
+
+### Skill-content generator
+The multi-agent LangGraph that produces skill-content.md: **plan → retrieve →
+synthesize → assemble → critic** (critic may revise once). **Plan** emits at
+most **5 topics** (merged/prioritized for large Scopes). **Retrieve** reuses
+the D2 retrieve→rerank→grade subgraph per topic. **Assemble** resolves
+Chunk-id Citations and appends the static Best-practices template. **Critic**
+checks: resolvable Chunk cites, R4-compliant suggested name/description, required
+sections, synthesized half within budget (~3k tokens / ~400 lines) — one revise
+then ship. Runs as a worker **`generate_skill_content`** Job (async); rejects
+Scopes with zero **ready** Videos. Default run: Scope only, no focus prompt,
+bundled template — one action after ingest.
+
+_Avoid_: regenerating the Best-practices half; a single monolithic synthesizer
+replacing the agent roster; synchronous API blocking on large Scopes; emitting
+an artifact when nothing is retrievable.
+
+### Focus prompt
+Optional user text steering Skill-content generation (e.g. "skill for debugging
+Rust borrow errors"). Empty focus ⇒ a general skill-oriented digest of the
+Scope.
+
+_Avoid_: requiring a focus prompt for the zero-config default; treating it as
+the skill's final `description` field.
 
 ### Best-practices template
 The curated, **static**, versioned half of skill-content.md: general
