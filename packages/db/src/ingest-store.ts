@@ -11,6 +11,11 @@ export type SourceRecord = {
   title: string | null;
 };
 
+export type CollectionRecord = {
+  id: string;
+  name: string;
+};
+
 export type VideoRecord = {
   id: string;
   youtubeVideoId: string;
@@ -76,6 +81,34 @@ export type IngestStore = {
   getSource(id: string): Promise<SourceRecord | undefined>;
   /** All Sources, newest first — both implementations must honour this order. */
   listSources(): Promise<SourceRecord[]>;
+  /**
+   * Hard-deletes a Source and its membership rows (source_videos,
+   * collection_sources cascade). Videos referenced by no other Source are
+   * garbage-collected (orphan rule); shared Videos are kept. Returns false when
+   * the Source does not exist.
+   */
+  deleteSource(id: string): Promise<boolean>;
+
+  createCollection(input: { name: string }): Promise<CollectionRecord>;
+  getCollection(id: string): Promise<CollectionRecord | undefined>;
+  /** All Collections, newest first. */
+  listCollections(): Promise<CollectionRecord[]>;
+  renameCollection(
+    id: string,
+    name: string,
+  ): Promise<CollectionRecord | undefined>;
+  deleteCollection(id: string): Promise<boolean>;
+  /** Adds a Source to a Collection; idempotent. */
+  addSourceToCollection(
+    collectionId: string,
+    sourceId: string,
+  ): Promise<void>;
+  /** Returns false when the membership row did not exist. */
+  removeSourceFromCollection(
+    collectionId: string,
+    sourceId: string,
+  ): Promise<boolean>;
+  listCollectionSourceIds(collectionId: string): Promise<string[]>;
 
   upsertVideo(input: {
     youtubeVideoId: string;

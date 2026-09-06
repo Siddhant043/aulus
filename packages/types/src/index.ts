@@ -59,6 +59,40 @@ export type Source = z.infer<typeof sourceSchema>;
 export const sourceListResponseSchema = z.array(sourceSchema);
 export type SourceListResponse = z.infer<typeof sourceListResponseSchema>;
 
+export const collectionSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  /** Member Source ids — a Collection groups Sources only, never Videos. */
+  sourceIds: z.array(z.string().uuid()),
+});
+export type Collection = z.infer<typeof collectionSchema>;
+
+export const collectionListResponseSchema = z.array(collectionSchema);
+export type CollectionListResponse = z.infer<
+  typeof collectionListResponseSchema
+>;
+
+export const createCollectionRequestSchema = z.object({
+  name: z.string().trim().min(1),
+});
+export type CreateCollectionRequest = z.infer<
+  typeof createCollectionRequestSchema
+>;
+
+export const renameCollectionRequestSchema = z.object({
+  name: z.string().trim().min(1),
+});
+export type RenameCollectionRequest = z.infer<
+  typeof renameCollectionRequestSchema
+>;
+
+export const addCollectionSourceRequestSchema = z.object({
+  sourceId: z.string().uuid(),
+});
+export type AddCollectionSourceRequest = z.infer<
+  typeof addCollectionSourceRequestSchema
+>;
+
 export const chatScopeSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("library") }),
   z.object({ kind: z.literal("source"), sourceId: z.string().uuid() }),

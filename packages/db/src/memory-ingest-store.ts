@@ -1,6 +1,7 @@
 import type { SourceKind } from "@aulus/types";
 import {
   ZERO_PROGRESS,
+  type CollectionRecord,
   type IngestStore,
   type JobKind,
   type JobProgress,
@@ -10,6 +11,7 @@ import {
   type TranscriptRecord,
   type VideoRecord,
 } from "./ingest-store";
+import { orphanVideoIdsAfterSourceRemoved } from "./domain/orphan-videos-after-source-removed";
 import type { VideoStatusValue } from "./domain/source-ingestion-status";
 
 function newId(): string {
@@ -24,6 +26,8 @@ export function createMemoryIngestStore(): IngestStore {
   const videos = new Map<string, VideoRecord>();
   const videosByYoutubeId = new Map<string, string>();
   const sourceVideoLinks = new Set<string>();
+  const collections = new Map<string, CollectionRecord>();
+  const collectionSourceLinks = new Set<string>();
   const jobs = new Map<string, JobRecord>();
   const transcripts = new Map<string, TranscriptRecord>();
   const chunks = new Map<string, StoredChunk[]>();
@@ -57,6 +61,100 @@ export function createMemoryIngestStore(): IngestStore {
     async listSources() {
       // Newest first, mirroring the Drizzle store's ordering.
       return [...sources.values()].reverse();
+    },
+
+    async deleteSource(id) {
+      if (!sources.has(id)) {
+        return false;
+      }
+
+      const membershipBeforeDelete = [...sourceVideoLinks].map((key) => {
+        const [sourceId, videoId] = key.split(":");
+        return { sourceId: sourceId!, videoId: videoId! };
+      });
+      const orphaned = orphanVideoIdsAfterSourceRemoved(
+        membershipBeforeDelete,
+        id,
+      );
+
+      sources.delete(id);
+      for (const key of sourceVideoLinks) {
+        if (key.startsWith(`${id}:`)) {
+          sourceVideoLinks.delete(key);
+        }
+      }
+      for (const key of collectionSourceLinks) {
+        if (key.endsWith(`:${id}`)) {
+          collectionSourceLinks.delete(key);
+        }
+      }
+      for (const videoId of orphaned) {
+        const video = videos.get(videoId);
+        if (video) {
+          videosByYoutubeId.delete(video.youtubeVideoId);
+        }
+        videos.delete(videoId);
+        transcripts.delete(videoId);
+        chunks.delete(videoId);
+      }
+      return true;
+    },
+
+    async createCollection(input) {
+      const record: CollectionRecord = { id: newId(), name: input.name };
+      collections.set(record.id, record);
+      return record;
+    },
+
+    async getCollection(id) {
+      return collections.get(id);
+    },
+
+    async listCollections() {
+      // Newest first, mirroring the Drizzle store's ordering.
+      return [...collections.values()].reverse();
+    },
+
+    async renameCollection(id, name) {
+      const existing = collections.get(id);
+      if (!existing) {
+        return undefined;
+      }
+      const updated = { ...existing, name };
+      collections.set(id, updated);
+      return updated;
+    },
+
+    async deleteCollection(id) {
+      if (!collections.has(id)) {
+        return false;
+      }
+      collections.delete(id);
+      for (const key of collectionSourceLinks) {
+        if (key.startsWith(`${id}:`)) {
+          collectionSourceLinks.delete(key);
+        }
+      }
+      return true;
+    },
+
+    async addSourceToCollection(collectionId, sourceId) {
+      collectionSourceLinks.add(`${collectionId}:${sourceId}`);
+    },
+
+    async removeSourceFromCollection(collectionId, sourceId) {
+      return collectionSourceLinks.delete(`${collectionId}:${sourceId}`);
+    },
+
+    async listCollectionSourceIds(collectionId) {
+      const result: string[] = [];
+      for (const key of collectionSourceLinks) {
+        const [cid, sourceId] = key.split(":");
+        if (cid === collectionId) {
+          result.push(sourceId!);
+        }
+      }
+      return result;
     },
 
     async upsertVideo(input) {

@@ -1,7 +1,9 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, notInArray } from "drizzle-orm";
 import type { Database } from "./client";
 import {
   chunks,
+  collectionSources,
+  collections,
   jobs,
   sourceVideos,
   sources,
@@ -10,6 +12,7 @@ import {
 } from "./schema";
 import {
   ZERO_PROGRESS,
+  type CollectionRecord,
   type IngestStore,
   type JobProgress,
   type JobRecord,
@@ -27,6 +30,12 @@ function sourceFromRow(row: typeof sources.$inferSelect): SourceRecord {
     url: row.url,
     title: row.title,
   };
+}
+
+function collectionFromRow(
+  row: typeof collections.$inferSelect,
+): CollectionRecord {
+  return { id: row.id, name: row.name };
 }
 
 function videoFromRow(row: typeof videos.$inferSelect): VideoRecord {
@@ -116,6 +125,115 @@ export function createDrizzleIngestStore(db: Database): IngestStore {
         .from(sources)
         .orderBy(desc(sources.createdAt));
       return rows.map(sourceFromRow);
+    },
+
+    async deleteSource(id) {
+      return db.transaction(async (tx) => {
+        const [existing] = await tx
+          .select({ id: sources.id })
+          .from(sources)
+          .where(eq(sources.id, id))
+          .limit(1);
+        if (!existing) {
+          return false;
+        }
+        // Candidate orphans: only Videos this Source referenced (mirrors the
+        // orphanVideoIdsAfterSourceRemoved domain rule — scoped, not global).
+        const candidateRows = await tx
+          .select({ videoId: sourceVideos.videoId })
+          .from(sourceVideos)
+          .where(eq(sourceVideos.sourceId, id));
+        const candidateIds = candidateRows.map((row) => row.videoId);
+
+        // Deleting the Source cascades source_videos and collection_sources.
+        await tx.delete(sources).where(eq(sources.id, id));
+
+        if (candidateIds.length > 0) {
+          // Of the candidates, drop the ones no remaining Source references.
+          const stillReferenced = tx
+            .select({ videoId: sourceVideos.videoId })
+            .from(sourceVideos);
+          await tx
+            .delete(videos)
+            .where(
+              and(
+                inArray(videos.id, candidateIds),
+                notInArray(videos.id, stillReferenced),
+              ),
+            );
+        }
+        return true;
+      });
+    },
+
+    async createCollection(input) {
+      const [row] = await db
+        .insert(collections)
+        .values({ name: input.name })
+        .returning();
+      return collectionFromRow(row!);
+    },
+
+    async getCollection(id) {
+      const [row] = await db
+        .select()
+        .from(collections)
+        .where(eq(collections.id, id))
+        .limit(1);
+      return row ? collectionFromRow(row) : undefined;
+    },
+
+    async listCollections() {
+      const rows = await db
+        .select()
+        .from(collections)
+        .orderBy(desc(collections.createdAt));
+      return rows.map(collectionFromRow);
+    },
+
+    async renameCollection(id, name) {
+      const [row] = await db
+        .update(collections)
+        .set({ name, updatedAt: new Date() })
+        .where(eq(collections.id, id))
+        .returning();
+      return row ? collectionFromRow(row) : undefined;
+    },
+
+    async deleteCollection(id) {
+      const rows = await db
+        .delete(collections)
+        .where(eq(collections.id, id))
+        .returning({ id: collections.id });
+      return rows.length > 0;
+    },
+
+    async addSourceToCollection(collectionId, sourceId) {
+      await db
+        .insert(collectionSources)
+        .values({ collectionId, sourceId })
+        .onConflictDoNothing();
+    },
+
+    async removeSourceFromCollection(collectionId, sourceId) {
+      const rows = await db
+        .delete(collectionSources)
+        .where(
+          and(
+            eq(collectionSources.collectionId, collectionId),
+            eq(collectionSources.sourceId, sourceId),
+          ),
+        )
+        .returning({ sourceId: collectionSources.sourceId });
+      return rows.length > 0;
+    },
+
+    async listCollectionSourceIds(collectionId) {
+      const rows = await db
+        .select({ sourceId: collectionSources.sourceId })
+        .from(collectionSources)
+        .where(eq(collectionSources.collectionId, collectionId));
+      return rows.map((row) => row.sourceId);
     },
 
     async upsertVideo(input) {
