@@ -6,6 +6,7 @@ export {
 } from "./ingest-store";
 export type {
   SourceRecord,
+  SourceVideoLink,
   CollectionRecord,
   VideoRecord,
   JobRecord,

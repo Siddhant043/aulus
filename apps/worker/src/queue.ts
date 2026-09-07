@@ -4,6 +4,7 @@ import type { JobKind } from "@aulus/db";
 
 export const INGEST_SOURCE_QUEUE = "ingest_source";
 export const INGEST_VIDEO_QUEUE = "ingest_video";
+export const SYNC_SOURCE_QUEUE = "sync_source";
 export const GENERATE_SKILL_CONTENT_QUEUE = "generate_skill_content";
 
 export type IngestJobData = { jobId: string };
@@ -19,11 +20,14 @@ export function createIngestQueues(connection: IORedis) {
   const ingestVideo = new Queue<IngestJobData>(INGEST_VIDEO_QUEUE, {
     connection,
   });
+  const syncSource = new Queue<IngestJobData>(SYNC_SOURCE_QUEUE, {
+    connection,
+  });
   const generateSkillContent = new Queue<IngestJobData>(
     GENERATE_SKILL_CONTENT_QUEUE,
     { connection },
   );
-  return { ingestSource, ingestVideo, generateSkillContent };
+  return { ingestSource, ingestVideo, syncSource, generateSkillContent };
 }
 
 export function enqueueUsing(
@@ -36,6 +40,10 @@ export function enqueueUsing(
     }
     if (kind === "ingest_video") {
       await queues.ingestVideo.add(kind, { jobId });
+      return;
+    }
+    if (kind === "sync_source") {
+      await queues.syncSource.add(kind, { jobId });
       return;
     }
     if (kind === "generate_skill_content") {

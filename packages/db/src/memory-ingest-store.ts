@@ -7,6 +7,7 @@ import {
   type JobProgress,
   type JobRecord,
   type SourceRecord,
+  type SourceVideoLink,
   type StoredChunk,
   type TranscriptRecord,
   type VideoRecord,
@@ -25,7 +26,8 @@ export function createMemoryIngestStore(): IngestStore {
   const sources = new Map<string, SourceRecord>();
   const videos = new Map<string, VideoRecord>();
   const videosByYoutubeId = new Map<string, string>();
-  const sourceVideoLinks = new Set<string>();
+  // key "sourceId:videoId" → the membership row's upstream-removal tombstone.
+  const sourceVideoLinks = new Map<string, { removedFromUpstreamAt: Date | null }>();
   const collections = new Map<string, CollectionRecord>();
   const collectionSourceLinks = new Set<string>();
   const jobs = new Map<string, JobRecord>();
@@ -40,6 +42,8 @@ export function createMemoryIngestStore(): IngestStore {
         youtubeId: input.youtubeId,
         url: input.url,
         title: input.title ?? null,
+        lastSyncedAt: null,
+        lastManualSyncAt: null,
       };
       sources.set(record.id, record);
       return record;
@@ -68,7 +72,7 @@ export function createMemoryIngestStore(): IngestStore {
         return false;
       }
 
-      const membershipBeforeDelete = [...sourceVideoLinks].map((key) => {
+      const membershipBeforeDelete = [...sourceVideoLinks.keys()].map((key) => {
         const [sourceId, videoId] = key.split(":");
         return { sourceId: sourceId!, videoId: videoId! };
       });
@@ -78,7 +82,7 @@ export function createMemoryIngestStore(): IngestStore {
       );
 
       sources.delete(id);
-      for (const key of sourceVideoLinks) {
+      for (const key of sourceVideoLinks.keys()) {
         if (key.startsWith(`${id}:`)) {
           sourceVideoLinks.delete(key);
         }
@@ -208,7 +212,7 @@ export function createMemoryIngestStore(): IngestStore {
 
     async listVideosForSource(sourceId) {
       const result: VideoRecord[] = [];
-      for (const key of sourceVideoLinks) {
+      for (const key of sourceVideoLinks.keys()) {
         const [sid, videoId] = key.split(":");
         if (sid === sourceId) {
           const video = videos.get(videoId!);
@@ -221,7 +225,10 @@ export function createMemoryIngestStore(): IngestStore {
     },
 
     async ensureSourceVideo(sourceId, videoId) {
-      sourceVideoLinks.add(`${sourceId}:${videoId}`);
+      const key = `${sourceId}:${videoId}`;
+      if (!sourceVideoLinks.has(key)) {
+        sourceVideoLinks.set(key, { removedFromUpstreamAt: null });
+      }
     },
 
     async createJob(input: {
@@ -268,6 +275,116 @@ export function createMemoryIngestStore(): IngestStore {
         }
       }
       return undefined;
+    },
+
+    async listCollectionTypeSources() {
+      return [...sources.values()]
+        .filter((source) => source.kind !== "video")
+        .reverse();
+    },
+
+    async listSourceVideoLinks(sourceId) {
+      const result: SourceVideoLink[] = [];
+      for (const [key, meta] of sourceVideoLinks) {
+        const [sid, videoId] = key.split(":");
+        if (sid !== sourceId) {
+          continue;
+        }
+        const video = videos.get(videoId!);
+        if (!video) {
+          continue;
+        }
+        result.push({
+          videoId: video.id,
+          youtubeVideoId: video.youtubeVideoId,
+          status: video.status,
+          removedFromUpstreamAt: meta.removedFromUpstreamAt,
+        });
+      }
+      return result;
+    },
+
+    async setSourceVideoRemoved(sourceId, videoId, removedAt) {
+      const key = `${sourceId}:${videoId}`;
+      const meta = sourceVideoLinks.get(key);
+      if (meta) {
+        meta.removedFromUpstreamAt = removedAt;
+      }
+    },
+
+    async updateSourceSyncState(sourceId, patch) {
+      const source = sources.get(sourceId);
+      if (!source) {
+        return;
+      }
+      sources.set(sourceId, {
+        ...source,
+        lastSyncedAt: patch.lastSyncedAt ?? source.lastSyncedAt,
+        lastManualSyncAt: patch.lastManualSyncAt ?? source.lastManualSyncAt,
+      });
+    },
+
+    async tryClaimManualSync(sourceId, now, intervalMs) {
+      const source = sources.get(sourceId);
+      if (!source) {
+        return false;
+      }
+      if (
+        source.lastManualSyncAt &&
+        now.getTime() - source.lastManualSyncAt.getTime() < intervalMs
+      ) {
+        return false;
+      }
+      sources.set(sourceId, { ...source, lastManualSyncAt: now });
+      return true;
+    },
+
+    async findActiveSyncSourceJob(sourceId) {
+      for (const job of jobs.values()) {
+        if (
+          job.sourceId === sourceId &&
+          job.kind === "sync_source" &&
+          (job.status === "queued" || job.status === "running")
+        ) {
+          return job;
+        }
+      }
+      return undefined;
+    },
+
+    async findRegenPendingSyncSourceJob(sourceId) {
+      let match: JobRecord | undefined;
+      for (const job of jobs.values()) {
+        if (job.sourceId !== sourceId || job.kind !== "sync_source") {
+          continue;
+        }
+        const progress = job.progress as Record<string, unknown>;
+        const newVideoIds = progress.newVideoIds;
+        if (
+          Array.isArray(newVideoIds) &&
+          newVideoIds.length > 0 &&
+          progress.regenSettled !== true
+        ) {
+          match = job;
+        }
+      }
+      return match;
+    },
+
+    async claimSyncSourceRegen(jobId) {
+      const job = jobs.get(jobId);
+      if (!job) {
+        return false;
+      }
+      const progress = job.progress as Record<string, unknown>;
+      if (progress.regenSettled === true) {
+        return false;
+      }
+      jobs.set(jobId, {
+        ...job,
+        progress: { ...progress, regenSettled: true },
+      });
+      return true;
     },
 
     async saveTranscript(record) {

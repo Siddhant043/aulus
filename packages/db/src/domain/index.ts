@@ -6,6 +6,8 @@ export type {
   MembershipSnapshot,
 } from "./video-ids-for-scope";
 export { orphanVideoIdsAfterSourceRemoved } from "./orphan-videos-after-source-removed";
+export { diffSourceVideos } from "./diff-source-videos";
+export type { SourceVideoDiff } from "./diff-source-videos";
 export { nextSkillContentVersion } from "./next-skill-content-version";
 export { packChunks, CHUNKING_VERSION, DEFAULT_PACK_OPTIONS, normalizeCaptionText } from "./pack-chunks";
 export type { PackedChunk, PackOptions, ChapterMarker } from "./pack-chunks";

@@ -3,6 +3,7 @@ import IORedis from "ioredis";
 import type { JobKind } from "@aulus/db";
 
 export const INGEST_SOURCE_QUEUE = "ingest_source";
+export const SYNC_SOURCE_QUEUE = "sync_source";
 export const GENERATE_SKILL_CONTENT_QUEUE = "generate_skill_content";
 
 export type QueueJobData = { jobId: string };
@@ -15,6 +16,10 @@ export function createIngestSourceQueue(connection: IORedis) {
   return new Queue<QueueJobData>(INGEST_SOURCE_QUEUE, { connection });
 }
 
+export function createSyncSourceQueue(connection: IORedis) {
+  return new Queue<QueueJobData>(SYNC_SOURCE_QUEUE, { connection });
+}
+
 export function createGenerateSkillContentQueue(connection: IORedis) {
   return new Queue<QueueJobData>(GENERATE_SKILL_CONTENT_QUEUE, {
     connection,
@@ -23,11 +28,16 @@ export function createGenerateSkillContentQueue(connection: IORedis) {
 
 export function enqueueApiJobs(queues: {
   ingestSource: Queue<QueueJobData>;
+  syncSource: Queue<QueueJobData>;
   generateSkillContent: Queue<QueueJobData>;
 }): (kind: JobKind, jobId: string) => Promise<void> {
   return async (kind, jobId) => {
     if (kind === "ingest_source") {
       await queues.ingestSource.add(kind, { jobId });
+      return;
+    }
+    if (kind === "sync_source") {
+      await queues.syncSource.add(kind, { jobId });
       return;
     }
     if (kind === "generate_skill_content") {

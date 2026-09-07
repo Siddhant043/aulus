@@ -9,6 +9,18 @@ export type SourceRecord = {
   youtubeId: string;
   url: string;
   title: string | null;
+  /** Last successful Sync completion (auto or manual). */
+  lastSyncedAt: Date | null;
+  /** Last manual Sync trigger — rate-limits manual Sync to once per 24h. */
+  lastManualSyncAt: Date | null;
+};
+
+/** One Source→Video membership row, with its upstream-removal tombstone. */
+export type SourceVideoLink = {
+  videoId: string;
+  youtubeVideoId: string;
+  status: VideoStatusValue;
+  removedFromUpstreamAt: Date | null;
 };
 
 export type CollectionRecord = {
@@ -33,6 +45,7 @@ export type VideoRecord = {
 export type JobKind =
   | "ingest_source"
   | "ingest_video"
+  | "sync_source"
   | "generate_skill_content";
 export type JobStatus =
   | "queued"
@@ -88,6 +101,46 @@ export type IngestStore = {
    * the Source does not exist.
    */
   deleteSource(id: string): Promise<boolean>;
+  /** Collection-type Sources (channel/playlist), newest first — Sync targets. */
+  listCollectionTypeSources(): Promise<SourceRecord[]>;
+  /** All membership rows for a Source, including upstream-removed tombstones. */
+  listSourceVideoLinks(sourceId: string): Promise<SourceVideoLink[]>;
+  /** Sets (or clears, with null) a membership row's upstream-removal tombstone. */
+  setSourceVideoRemoved(
+    sourceId: string,
+    videoId: string,
+    removedAt: Date | null,
+  ): Promise<void>;
+  updateSourceSyncState(
+    sourceId: string,
+    patch: { lastSyncedAt?: Date; lastManualSyncAt?: Date },
+  ): Promise<void>;
+  /**
+   * Atomically claims the manual-Sync slot: stamps last_manual_sync_at = now
+   * only if the previous manual Sync is older than intervalMs (or never).
+   * Returns whether this caller won — races can't both pass the 24h cap.
+   */
+  tryClaimManualSync(
+    sourceId: string,
+    now: Date,
+    intervalMs: number,
+  ): Promise<boolean>;
+  /** A queued/running sync_source Job for the Source, if any (one at a time). */
+  findActiveSyncSourceJob(sourceId: string): Promise<JobRecord | undefined>;
+  /**
+   * The most recent sync_source Job for the Source that added new Videos and
+   * has not yet decided on regeneration (progress.newVideoIds set,
+   * progress.regenSettled falsy) — the barrier for conditional regen.
+   */
+  findRegenPendingSyncSourceJob(
+    sourceId: string,
+  ): Promise<JobRecord | undefined>;
+  /**
+   * Atomically claims the conditional-regen decision for a sync_source Job by
+   * setting progress.regenSettled, returning whether this caller won. Prevents
+   * concurrent ingest_video completions from enqueuing duplicate regens.
+   */
+  claimSyncSourceRegen(jobId: string): Promise<boolean>;
 
   createCollection(input: { name: string }): Promise<CollectionRecord>;
   getCollection(id: string): Promise<CollectionRecord | undefined>;
