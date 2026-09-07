@@ -3,6 +3,7 @@ import type { Providers } from "@aulus/ai";
 import type { ChatStore, SkillContentStore, SourceRecord } from "@aulus/db";
 import type { HealthResponse } from "@aulus/types";
 import { registerChatRoutes } from "./chat-routes";
+import { registerCollectionRoutes } from "./collection-routes";
 import { createSource, type SourceRoutesDeps } from "./create-source";
 import { toSourceDto } from "./source-dto";
 import {
@@ -67,8 +68,20 @@ export function createApp(deps?: AppDeps) {
     return c.json(await resolveSourceDto(deps, source));
   });
 
+  app.delete("/api/sources/:id", async (c) => {
+    if (!deps) {
+      return c.json({ error: "sources are not configured" }, 503);
+    }
+    const deleted = await deps.store.deleteSource(c.req.param("id"));
+    if (!deleted) {
+      return c.json({ error: "Source not found" }, 404);
+    }
+    return c.body(null, 204);
+  });
+
   if (deps) {
     registerJobRoutes(app, deps.store);
+    registerCollectionRoutes(app, deps.store);
   }
 
   if (deps?.chatStore && deps.providers) {
