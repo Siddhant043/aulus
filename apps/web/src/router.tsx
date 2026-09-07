@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-router";
 import { Workbench } from "./components/workbench";
 import { Library } from "./surfaces/library";
+import { ChatIndex, ChatDetail } from "./surfaces/chat";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -21,7 +22,23 @@ const libraryRoute = createRoute({
   component: Library,
 });
 
-const routeTree = rootRoute.addChildren([libraryRoute]);
+const chatIndexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/chats",
+  component: ChatIndex,
+});
+
+const chatDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/chats/$chatId",
+  component: ChatDetail,
+});
+
+const routeTree = rootRoute.addChildren([
+  libraryRoute,
+  chatIndexRoute,
+  chatDetailRoute,
+]);
 
 export const router = createRouter({ routeTree });
 
