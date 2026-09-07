@@ -192,6 +192,7 @@ export type SkillContentArtifact = z.infer<typeof skillContentArtifactSchema>;
 export const jobKindSchema = z.enum([
   "ingest_source",
   "ingest_video",
+  "sync_source",
   "generate_skill_content",
 ]);
 export type JobKindDto = z.infer<typeof jobKindSchema>;

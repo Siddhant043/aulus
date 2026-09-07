@@ -5,6 +5,7 @@ import type { HealthResponse } from "@aulus/types";
 import { registerChatRoutes } from "./chat-routes";
 import { registerCollectionRoutes } from "./collection-routes";
 import { createSource, type SourceRoutesDeps } from "./create-source";
+import { enqueueSourceSync } from "./sync-source";
 import { toSourceDto } from "./source-dto";
 import {
   registerJobRoutes,
@@ -77,6 +78,17 @@ export function createApp(deps?: AppDeps) {
       return c.json({ error: "Source not found" }, 404);
     }
     return c.body(null, 204);
+  });
+
+  app.post("/api/sources/:id/sync", async (c) => {
+    if (!deps) {
+      return c.json({ error: "sources are not configured" }, 503);
+    }
+    const result = await enqueueSourceSync(deps, c.req.param("id"));
+    if (!result.ok) {
+      return c.json({ error: result.error }, result.status);
+    }
+    return c.json({ jobId: result.jobId }, 202);
   });
 
   if (deps) {

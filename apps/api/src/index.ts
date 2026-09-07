@@ -10,6 +10,7 @@ import { createApp } from "./app";
 import {
   createGenerateSkillContentQueue,
   createIngestSourceQueue,
+  createSyncSourceQueue,
   createRedisConnection,
   enqueueApiJobs,
 } from "./queue";
@@ -23,11 +24,13 @@ const chatStore = createDrizzleChatStore(db);
 const skillContentStore = createDrizzleSkillContentStore(db);
 const redis = createRedisConnection(config.REDIS_URL);
 const ingestSourceQueue = createIngestSourceQueue(redis);
+const syncSourceQueue = createSyncSourceQueue(redis);
 const generateSkillContentQueue = createGenerateSkillContentQueue(redis);
 const app = createApp({
   store,
   enqueueJob: enqueueApiJobs({
     ingestSource: ingestSourceQueue,
+    syncSource: syncSourceQueue,
     generateSkillContent: generateSkillContentQueue,
   }),
   chatStore,

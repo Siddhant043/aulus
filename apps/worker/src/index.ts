@@ -12,6 +12,8 @@ import { handleIngestSource } from "./ingest/ingest-source";
 import { handleIngestVideo } from "./ingest/ingest-video";
 import { createYoutubeDataApiEnumerator } from "./ingest/youtube-data-api";
 import { handleGenerateSkillContent } from "./skill/generate-skill-content";
+import { handleSyncSource } from "./sync/sync-source";
+import { startDailySyncCron } from "./sync/daily-cron";
 import {
   createIngestQueues,
   createRedisConnection,
@@ -19,6 +21,7 @@ import {
   GENERATE_SKILL_CONTENT_QUEUE,
   INGEST_SOURCE_QUEUE,
   INGEST_VIDEO_QUEUE,
+  SYNC_SOURCE_QUEUE,
   type IngestJobData,
 } from "./queue";
 
@@ -53,6 +56,7 @@ const ingestVideoWorker = new Worker<IngestJobData>(
     await handleIngestVideo(
       {
         store,
+        enqueueJob,
         fetchTranscript,
         embeddings: {
           model: providers.embeddings.model,
@@ -67,6 +71,17 @@ const ingestVideoWorker = new Worker<IngestJobData>(
     connection: redis.duplicate(),
     concurrency: config.INGEST_VIDEO_CONCURRENCY,
   },
+);
+
+const syncSourceWorker = new Worker<IngestJobData>(
+  SYNC_SOURCE_QUEUE,
+  async (job) => {
+    await handleSyncSource(
+      { store, enqueueJob, enumerateCollection },
+      job.data.jobId,
+    );
+  },
+  { connection: redis.duplicate() },
 );
 
 const generateSkillContentWorker = new Worker<IngestJobData>(
@@ -94,6 +109,11 @@ ingestVideoWorker.on("failed", (job, error) => {
 generateSkillContentWorker.on("failed", (job, error) => {
   console.error(`generate_skill_content ${job?.id} failed`, error);
 });
+syncSourceWorker.on("failed", (job, error) => {
+  console.error(`sync_source ${job?.id} failed`, error);
+});
+
+startDailySyncCron(store, enqueueJob);
 
 console.log(
   `worker ready (redis ${config.REDIS_URL}, llm ${config.LLM_PROVIDER})`,

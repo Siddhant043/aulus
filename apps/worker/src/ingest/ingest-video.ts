@@ -7,6 +7,8 @@ import {
   type StoredChunk,
 } from "@aulus/db";
 import { refreshActiveParentJob } from "./ingest-source";
+import { maybeEnqueueSyncRegen } from "../sync/maybe-enqueue-sync-regen";
+import type { EnqueueJob } from "../sync/types";
 import type { TranscriptFetcher } from "./transcript-fetcher";
 
 export const EMBED_BATCH_SIZE = 64;
@@ -20,7 +22,21 @@ export type IngestVideoDeps = {
   store: IngestStore;
   embeddings: EmbeddingsPort;
   fetchTranscript: TranscriptFetcher;
+  /** Present in the running worker; lets a finishing Video trigger Sync regen. */
+  enqueueJob?: EnqueueJob;
 };
+
+// Called whenever a Video reaches a terminal state: refresh the parent
+// ingest_source progress and let the Sync regen barrier check its Source.
+async function onVideoSettled(
+  deps: IngestVideoDeps,
+  sourceId: string,
+): Promise<void> {
+  await refreshActiveParentJob(deps.store, sourceId);
+  if (deps.enqueueJob) {
+    await maybeEnqueueSyncRegen(deps.store, deps.enqueueJob, sourceId);
+  }
+}
 
 async function embedPrefixedBodies(
   embeddings: EmbeddingsPort,
@@ -57,7 +73,7 @@ export async function handleIngestVideo(
 
     if (video.status === "ready") {
       await deps.store.updateJob(jobId, { status: "succeeded" });
-      await refreshActiveParentJob(deps.store, job.sourceId);
+      await onVideoSettled(deps, job.sourceId);
       return;
     }
 
@@ -86,7 +102,7 @@ export async function handleIngestVideo(
         error:
           fetched.reason === "error" ? { message: fetched.message } : null,
       });
-      await refreshActiveParentJob(deps.store, job.sourceId);
+      await onVideoSettled(deps, job.sourceId);
       return;
     }
 
@@ -140,7 +156,7 @@ export async function handleIngestVideo(
       ingestedAt: new Date(),
     });
     await deps.store.updateJob(jobId, { status: "succeeded" });
-    await refreshActiveParentJob(deps.store, job.sourceId);
+    await onVideoSettled(deps, job.sourceId);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await deps.store.updateVideo(job.videoId, {
@@ -151,6 +167,6 @@ export async function handleIngestVideo(
       status: "failed",
       error: { message },
     });
-    await refreshActiveParentJob(deps.store, job.sourceId);
+    await onVideoSettled(deps, job.sourceId);
   }
 }

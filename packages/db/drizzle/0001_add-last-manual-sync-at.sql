@@ -1,0 +1,1 @@
+ALTER TABLE "sources" ADD COLUMN "last_manual_sync_at" timestamp with time zone;

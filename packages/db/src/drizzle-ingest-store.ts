@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, notInArray } from "drizzle-orm";
+import { and, desc, eq, inArray, notInArray, or, isNull, lt, sql } from "drizzle-orm";
 import type { Database } from "./client";
 import {
   chunks,
@@ -29,6 +29,8 @@ function sourceFromRow(row: typeof sources.$inferSelect): SourceRecord {
     youtubeId: row.youtubeId,
     url: row.url,
     title: row.title,
+    lastSyncedAt: row.lastSyncedAt,
+    lastManualSyncAt: row.lastManualSyncAt,
   };
 }
 
@@ -70,9 +72,6 @@ function progressFromJson(
 }
 
 function jobFromRow(row: typeof jobs.$inferSelect): JobRecord {
-  if (row.kind === "sync_source") {
-    throw new Error(`Job ${row.id} has unsupported kind sync_source`);
-  }
   return {
     id: row.id,
     kind: row.kind,
@@ -362,6 +361,126 @@ export function createDrizzleIngestStore(db: Database): IngestStore {
         )
         .limit(1);
       return row ? jobFromRow(row) : undefined;
+    },
+
+    async listCollectionTypeSources() {
+      const rows = await db
+        .select()
+        .from(sources)
+        .where(inArray(sources.kind, ["channel", "playlist"]))
+        .orderBy(desc(sources.createdAt));
+      return rows.map(sourceFromRow);
+    },
+
+    async listSourceVideoLinks(sourceId) {
+      const rows = await db
+        .select({
+          videoId: videos.id,
+          youtubeVideoId: videos.youtubeVideoId,
+          status: videos.status,
+          removedFromUpstreamAt: sourceVideos.removedFromUpstreamAt,
+        })
+        .from(sourceVideos)
+        .innerJoin(videos, eq(sourceVideos.videoId, videos.id))
+        .where(eq(sourceVideos.sourceId, sourceId));
+      return rows;
+    },
+
+    async setSourceVideoRemoved(sourceId, videoId, removedAt) {
+      await db
+        .update(sourceVideos)
+        .set({ removedFromUpstreamAt: removedAt })
+        .where(
+          and(
+            eq(sourceVideos.sourceId, sourceId),
+            eq(sourceVideos.videoId, videoId),
+          ),
+        );
+    },
+
+    async updateSourceSyncState(sourceId, patch) {
+      await db
+        .update(sources)
+        .set({
+          ...(patch.lastSyncedAt ? { lastSyncedAt: patch.lastSyncedAt } : {}),
+          ...(patch.lastManualSyncAt
+            ? { lastManualSyncAt: patch.lastManualSyncAt }
+            : {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(sources.id, sourceId));
+    },
+
+    async tryClaimManualSync(sourceId, now, intervalMs) {
+      const cutoff = new Date(now.getTime() - intervalMs);
+      const rows = await db
+        .update(sources)
+        .set({ lastManualSyncAt: now, updatedAt: now })
+        .where(
+          and(
+            eq(sources.id, sourceId),
+            or(
+              isNull(sources.lastManualSyncAt),
+              lt(sources.lastManualSyncAt, cutoff),
+            ),
+          ),
+        )
+        .returning({ id: sources.id });
+      return rows.length > 0;
+    },
+
+    async findActiveSyncSourceJob(sourceId) {
+      const [row] = await db
+        .select()
+        .from(jobs)
+        .where(
+          and(
+            eq(jobs.sourceId, sourceId),
+            eq(jobs.kind, "sync_source"),
+            inArray(jobs.status, ["queued", "running"]),
+          ),
+        )
+        .limit(1);
+      return row ? jobFromRow(row) : undefined;
+    },
+
+    async findRegenPendingSyncSourceJob(sourceId) {
+      // The regen barrier reads progress JSON, so filter recent sync_source
+      // Jobs in memory rather than with a JSON predicate.
+      const rows = await db
+        .select()
+        .from(jobs)
+        .where(and(eq(jobs.sourceId, sourceId), eq(jobs.kind, "sync_source")))
+        .orderBy(desc(jobs.createdAt));
+      for (const row of rows) {
+        const progress = row.progress as Record<string, unknown>;
+        const newVideoIds = progress.newVideoIds;
+        if (
+          Array.isArray(newVideoIds) &&
+          newVideoIds.length > 0 &&
+          progress.regenSettled !== true
+        ) {
+          return jobFromRow(row);
+        }
+      }
+      return undefined;
+    },
+
+    async claimSyncSourceRegen(jobId) {
+      const rows = await db
+        .update(jobs)
+        .set({
+          progress: sql`${jobs.progress} || '{"regenSettled":true}'::jsonb`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(jobs.id, jobId),
+            sql`coalesce(${jobs.progress}->>'regenSettled', '') <> 'true'`,
+          ),
+        )
+        .returning({ id: jobs.id });
+      return rows.length > 0;
     },
 
     async saveTranscript(record: TranscriptRecord) {

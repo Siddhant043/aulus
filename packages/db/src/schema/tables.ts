@@ -90,6 +90,8 @@ export const sources = pgTable(
     url: text("url").notNull(),
     title: text("title"),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    /** Last manual Sync trigger — rate-limits manual Sync to once per 24h. */
+    lastManualSyncAt: timestamp("last_manual_sync_at", { withTimezone: true }),
     /** Opaque Sync cursor (e.g. uploads-playlist page token). */
     syncCursor: text("sync_cursor"),
     createdAt,
