@@ -9,11 +9,11 @@ type NavItem = {
   soon?: boolean;
 };
 
-// Library is live now; Chat and skill-content land in T11/T12. Showing them as
-// disabled makes the shell's shape visible without pretending they work.
+// skill-content lands in T12. Showing it disabled makes the shell's shape
+// visible without pretending it works.
 const navItems: NavItem[] = [
   { label: "Library", to: "/" },
-  { label: "Chat", soon: true },
+  { label: "Chat", to: "/chats" },
   { label: "skill-content", soon: true },
 ];
 
@@ -32,7 +32,9 @@ function RailLink({ item }: { item: NavItem }) {
     <Link
       to={item.to}
       className="rounded-md px-3 py-2 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-text [&.active]:bg-surface-2 [&.active]:font-medium [&.active]:text-text"
-      activeOptions={{ exact: true }}
+      // "/" must match exactly; section routes (e.g. /chats) stay active on
+      // their detail pages (/chats/$chatId).
+      activeOptions={{ exact: item.to === "/" }}
     >
       {item.label}
     </Link>

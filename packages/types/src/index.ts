@@ -143,6 +143,15 @@ export type SendChatMessageRequest = z.infer<
   typeof sendChatMessageRequestSchema
 >;
 
+export const chatWithMessagesSchema = z.object({
+  chat: chatSchema,
+  messages: z.array(chatMessageSchema),
+});
+export type ChatWithMessages = z.infer<typeof chatWithMessagesSchema>;
+
+export const chatListResponseSchema = z.array(chatSchema);
+export type ChatListResponse = z.infer<typeof chatListResponseSchema>;
+
 export const chatSseStatusEventSchema = z.object({
   phase: z.string(),
 });
